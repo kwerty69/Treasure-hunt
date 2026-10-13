@@ -3,7 +3,8 @@
 import { getStore } from "@netlify/blobs";
 import crypto from "node:crypto";
 
-const store = getStore({ name: "hunt", consistency: "strong" });
+// Create the store per call: the Blobs access token is tied to the current invocation and goes stale if cached at module level.
+const S_ = () => getStore({ name: "hunt", consistency: "strong" });
 const now = () => Date.now();
 const pad = n => String(n).padStart(15, "0");
 const rid = () => crypto.randomBytes(3).toString("hex");
@@ -13,10 +14,10 @@ const json = (b, status = 200, headers = {}) =>
   new Response(JSON.stringify(b), { status, headers: { "content-type": "application/json", "cache-control": "no-store", ...headers } });
 
 // ---------- storage helpers ----------
-const get = k => store.get(k, { type: "json" });
-const put = (k, v) => store.setJSON(k, v);
-const keys = async prefix => (await store.list({ prefix })).blobs.map(b => b.key).sort();
-const delPrefix = async prefix => { await Promise.all((await keys(prefix)).map(k => store.delete(k))); };
+const get = k => S_().get(k, { type: "json" });
+const put = (k, v) => S_().setJSON(k, v);
+const keys = async prefix => (await S_().list({ prefix })).blobs.map(b => b.key).sort();
+const delPrefix = async prefix => { await Promise.all((await keys(prefix)).map(k => S_().delete(k))); };
 const defaultCfg = () => ({
   settings: { active: true, sabotageMinutes: 10, cooldownMinutes: 3, eventName: "Campus Treasure Hunt" },
   nextId: 1, teams: [], stations: [],
@@ -217,7 +218,7 @@ async function admin(req, p, m) {
   }
   if ((mm = p.match(/^\/admin\/teams\/(\d+)(\/reset)?$/))) {
     const id = +mm[1], t = cfg.teams.find(x => x.id === id); if (!t) return json({ error: "Not found" }, 404);
-    if (mm[2] && m === "POST") { await Promise.all([store.delete(`prog/${id}`), store.delete(`cool/${id}`), store.delete(`seen/${id}`), delPrefix(`ev/${id}/`), delPrefix(`lock/${id}/`)]); return json({ ok: true }); }
+    if (mm[2] && m === "POST") { await Promise.all([S_().delete(`prog/${id}`), S_().delete(`cool/${id}`), S_().delete(`seen/${id}`), delPrefix(`ev/${id}/`), delPrefix(`lock/${id}/`)]); return json({ ok: true }); }
     if (m === "PUT") {
       if (b.name !== undefined) { const n = clean(b.name, 60); if (n && cfg.teams.some(x => x.id !== id && x.name.toLowerCase() === n.toLowerCase())) return json({ error: "That team name is taken." }, 400); if (n) t.name = n; }
       if (b.start_clue !== undefined) t.start_clue = clean(b.start_clue, 600);
@@ -229,7 +230,7 @@ async function admin(req, p, m) {
       cfg.teams = cfg.teams.filter(x => x.id !== id); await saveCfg(cfg);
       const assists = (await keys("assist/")).filter(k => { const [, f, to] = k.split("/"); return +f === id || +to === id; });
       const locks = (await keys("lock/")).filter(k => +k.split("/")[1] === id);
-      await Promise.all([store.delete(`prog/${id}`), store.delete(`cool/${id}`), store.delete(`seen/${id}`), store.delete(`stat/${id}`), delPrefix(`ev/${id}/`), ...assists.map(k => store.delete(k)), ...locks.map(k => store.delete(k))]);
+      await Promise.all([S_().delete(`prog/${id}`), S_().delete(`cool/${id}`), S_().delete(`seen/${id}`), S_().delete(`stat/${id}`), delPrefix(`ev/${id}/`), ...assists.map(k => S_().delete(k)), ...locks.map(k => S_().delete(k))]);
       return json({ ok: true });
     }
   }
@@ -237,7 +238,7 @@ async function admin(req, p, m) {
     await Promise.all(["prog/", "ev/", "lock/", "assist/", "cool/", "seen/", "log/", "stat/"].map(delPrefix));
     return json({ ok: true });
   }
-  if ((mm = p.match(/^\/admin\/locks\/(\d+)\/(\d+)$/)) && m === "DELETE") { await store.delete(`lock/${mm[1]}/${mm[2]}`); return json({ ok: true }); }
+  if ((mm = p.match(/^\/admin\/locks\/(\d+)\/(\d+)$/)) && m === "DELETE") { await S_().delete(`lock/${mm[1]}/${mm[2]}`); return json({ ok: true }); }
   return json({ error: "not found" }, 404);
 }
 
