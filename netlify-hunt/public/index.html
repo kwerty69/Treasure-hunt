@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c1224">
+<title>Treasure Hunt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+const $app = document.getElementById('app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let me = null, poll = null, tick = null, eventName = 'Treasure Hunt';
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { method: opts.method || 'GET', headers: { 'Content-Type': 'application/json' },
+    body: opts.body ? JSON.stringify(opts.body) : undefined, credentials: 'same-origin' });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401 && j.error === 'login') { me = null; throw Object.assign(new Error('login'), { login: true }); }
+  if (!r.ok) throw Object.assign(new Error(j.error || 'Something went wrong'), { data: j });
+  return j;
+}
+function toast(msg) {
+  const t = document.createElement('div'); t.className = 'toast rise'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 3200);
+}
+function confetti() {
+  const c = document.createElement('div'); c.className = 'confetti';
+  const cols = ['#f5b942', '#ff8f5a', '#3ddc97', '#6ea8ff', '#ff5d73', '#ffd98a'];
+  for (let i = 0; i < 70; i++) {
+    const p = document.createElement('i');
+    p.style.cssText = `left:${Math.random() * 100}%;background:${cols[i % 6]};animation-duration:${2 + Math.random() * 2.2}s;animation-delay:${Math.random() * .6}s;transform:rotate(${Math.random() * 360}deg)`;
+    c.appendChild(p);
+  }
+  document.body.appendChild(c); setTimeout(() => c.remove(), 5200);
+}
+const fmt = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const clear = () => { clearInterval(poll); clearInterval(tick); };
+const topbar = (right = '') => `<div class="top"><div class="brand"><div class="logo">🧭</div><span>${esc(eventName)}</span></div>${right}</div>`;
+
+/* ---------- routing ---------- */
+async function route() {
+  clear();
+  try { eventName = (await api('/api/public')).eventName; document.title = eventName; } catch {}
+  try { await api('/api/me').then(d => me = d); } catch (e) { if (!e.login) return fail(e); }
+  if (!me) return loginView();
+  const m = location.pathname.match(/^\/q\/([a-z0-9]+)/);
+  if (m) return scanView(m[1]);
+  homeView();
+}
+function fail(e) { $app.innerHTML = topbar() + `<div class="card center"><div class="big">📡</div><h3>Can’t reach the server</h3><p class="muted">${esc(e.message)}</p><button class="btn" onclick="route()">Try again</button></div>`; }
+function go(path) { history.pushState({}, '', path); route(); }
+window.addEventListener('popstate', route);
+
+/* ---------- login ---------- */
+function loginView() {
+  $app.innerHTML = `
+  <div class="rise" style="padding-top:8vh">
+    <div class="center" style="margin-bottom:26px">
+      <div class="logo" style="width:78px;height:78px;border-radius:24px;margin:0 auto 18px;display:grid;place-items:center;font-size:40px;background:linear-gradient(135deg,var(--gold),#ff8f5a);box-shadow:0 20px 40px -14px var(--gold)">🧭</div>
+      <h1 style="font-size:34px">${esc(eventName)}</h1>
+      <p class="muted" style="margin:8px 0 0">Log in with your team to start hunting.</p>
+    </div>
+    <form class="card" id="f">
+      <label>Team name</label><input name="team" autocomplete="username" autocapitalize="off" required>
+      <label>Password</label><input name="password" type="password" autocomplete="current-password" required>
+      <div class="err" id="err"></div>
+      <button class="btn" style="margin-top:6px">Enter the hunt →</button>
+    </form>
+  </div>`;
+  document.getElementById('f').onsubmit = async e => {
+    e.preventDefault(); const f = new FormData(e.target);
+    try { await api('/api/login', { method: 'POST', body: { team: f.get('team'), password: f.get('password') } }); route(); }
+    catch (er) { document.getElementById('err').textContent = er.message; }
+  };
+}
+async function logout() { await api('/api/logout', { method: 'POST' }).catch(() => {}); me = null; history.replaceState({}, '', '/'); route(); }
+
+/* ---------- home ---------- */
+function homeView() {
+  const d = me, pct = d.total ? Math.round(d.progress / d.total * 100) : 0;
+  const last = d.revealed[d.revealed.length - 1];
+  const clueText = d.finished ? null : (last ? last.clue : d.startClue);
+  const unseen = d.events.filter(e => !e.seen);
+  $app.innerHTML = `
+  ${topbar(`<span class="chip" onclick="logout()">👥 <b>${esc(d.team.name)}</b> · log out</span>`)}
+  ${!d.active ? `<div class="notice">⏸️ The hunt is paused by the organisers. Hang tight!</div>` : ''}
+  <div class="card rise"><div class="hero">
+    <div class="ring" style="--p:${pct}"><div>${d.progress}<small>of ${d.total}</small></div></div>
+    <div><div class="eyebrow">Your quest</div><h2>${d.finished ? 'Hunt complete! 🏆' : d.progress === 0 ? 'Time to begin' : 'Keep going!'}</h2>
+    <div class="muted small">${d.finished ? 'You found every QR.' : `${d.total - d.progress} QR${d.total - d.progress === 1 ? '' : 's'} left to find`}</div></div>
+  </div></div>
+
+  ${unseen.map(e => `<div class="notice ${e.type} rise">${esc(e.message)}<small>${new Date(e.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></div>`).join('')}
+
+  ${d.finished ? `<div class="parch rise"><div class="eyebrow">Congratulations</div>You cracked the final clue. Head to the organisers to claim your treasure!</div>` :
+  clueText ? `<div class="parch rise"><div class="eyebrow">${last ? `Clue ${last.idx + 1} — find the next QR` : 'Your starting clue'}</div>${esc(clueText)}</div>` : `<div class="card"><p class="muted">No starting clue yet — ask the organisers.</p></div>`}
+
+  <div class="card" style="margin-top:14px">
+    <h3>Found a QR? 📷</h3>
+    <p class="muted small" style="margin:0 0 10px">Scan it with your phone camera. If scanning fails, type the code printed under it.</p>
+    <form class="row" id="codef"><input name="c" placeholder="QR code" autocapitalize="off" style="flex:2"><button class="btn" style="flex:1">Open</button></form>
+  </div>
+
+  ${d.revealed.length ? `<div class="card"><details><summary>📜 Clues you’ve collected (${d.revealed.length})</summary><div style="margin-top:8px">
+    ${d.revealed.map(r => `<div class="item"><div class="num">${r.idx + 1}</div><div>${esc(r.clue)}</div></div>`).join('')}</div></details></div>` : ''}
+
+  <div class="card"><h3>🏁 Leaderboard</h3>
+    ${d.leaderboard.map((t, i) => `<div class="lb ${t.id === d.team.id ? 'me' : ''}"><div class="pos">${i + 1}</div><div style="flex:0 0 32%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}${t.finishedAt ? ' 🏆' : ''}</div><div class="bar"><i style="width:${t.total ? t.progress / t.total * 100 : 0}%"></i></div><div class="small muted">${t.progress}/${t.total}</div></div>`).join('') || '<p class="muted">No teams yet.</p>'}
+  </div>
+
+  ${d.events.length > unseen.length ? `<div class="card"><details><summary>🔔 Earlier messages</summary><div style="margin-top:10px">${d.events.filter(e => e.seen).map(e => `<div class="notice ${e.type}">${esc(e.message)}</div>`).join('')}</div></details></div>` : ''}`;
+
+  document.getElementById('codef').onsubmit = e => {
+    e.preventDefault(); let c = new FormData(e.target).get('c').trim().toLowerCase();
+    c = c.split('/q/').pop(); if (c) go('/q/' + c);
+  };
+  if (unseen.length) api('/api/events/seen', { method: 'POST' }).catch(() => {});
+  poll = setInterval(async () => {
+    try { const prev = me.events.length + '|' + me.progress + '|' + me.leaderboard.map(t => t.progress).join();
+      me = await api('/api/me');
+      const cur = me.events.length + '|' + me.progress + '|' + me.leaderboard.map(t => t.progress).join();
+      if (prev !== cur && !document.activeElement?.matches('input')) homeView(); } catch {}
+  }, 6000);
+}
+
+/* ---------- scan ---------- */
+async function scanView(code) {
+  $app.innerHTML = topbar() + `<div class="card center"><div class="big">🔍</div><p class="muted">Reading the QR…</p></div>`;
+  let r;
+  try { r = await api('/api/scan/' + code); } catch (e) { return e.login ? route() : fail(e); }
+  const back = `<button class="btn ghost" style="margin-top:12px" onclick="go('/')">← Back to my quest</button>`;
+  const head = topbar(`<span class="chip" onclick="go('/')">🏠 Home</span>`);
+
+  if (r.status === 'unknown') { $app.innerHTML = head + `<div class="card center rise"><div class="big">🤔</div><h3>That QR isn’t part of the hunt</h3><p class="muted">Check the code or try another.</p></div>` + back; return; }
+  if (r.status === 'inactive') { $app.innerHTML = head + `<div class="card center rise"><div class="big">⏸️</div><h3>The hunt is paused</h3><p class="muted">Come back when the organisers restart it.</p></div>` + back; return; }
+
+  if (r.status === 'advance' || r.status === 'finished' || r.status === 'replay') {
+    const fin = r.status === 'finished';
+    $app.innerHTML = head + `
+      <div class="center rise" style="margin:6px 0 16px"><div class="big pulse">${fin ? '🏆' : r.status === 'replay' ? '📜' : '🎉'}</div>
+        <h1 style="font-size:30px">${fin ? 'You did it!' : r.status === 'replay' ? 'Clue revisited' : 'QR found!'}</h1>
+        <div class="muted">${esc(r.station)} · ${r.step}/${r.total}</div></div>
+      <div class="parch rise"><div class="eyebrow">${fin ? 'Final message' : 'Your clue'}</div>${esc(r.clue)}</div>${back}`;
+    if (r.status !== 'replay') confetti();
+    return;
+  }
+
+  if (r.status === 'locked') {
+    const end = Date.now() + (r.until - r.now);
+    $app.innerHTML = head + `<div class="card center rise"><div class="big">🔒</div><h3>This clue is jammed!</h3>
+      <p class="muted">Another team sabotaged it. Try again in</p><div class="timer" id="cd">${fmt(end - Date.now())}</div>
+      <p class="muted small">Meanwhile, search for other QRs — or find a way to help someone else.</p></div>${back}`;
+    tick = setInterval(() => { const left = end - Date.now(); const el = document.getElementById('cd');
+      if (left <= 0) { clear(); scanView(code); } else if (el) el.textContent = fmt(left); }, 500);
+    return;
+  }
+
+  // foreign / notyet
+  const t = r.targets || [];
+  const title = r.status === 'notyet' ? 'Not your turn yet' : 'This QR belongs to another team';
+  const sub = r.status === 'notyet' ? 'Follow your clues in order — this one comes later for you.' : 'It’s not on your route. But what you do next matters…';
+  let sel = t.length === 1 ? t[0].id : null;
+  let cdEnd = Date.now() + (r.cooldownLeft || 0);
+  $app.innerHTML = head + `<div class="card center rise"><div class="big pulse">${r.status === 'notyet' ? '⏳' : '🕵️'}</div><h3>${title}</h3><p class="muted">${sub}</p></div>
+    ${t.length ? `<div class="card rise"><div class="eyebrow">Choose your move</div>
+      ${t.length > 1 ? `<label style="margin-top:0">Which team’s QR is this?</label><div class="chips" id="chips">${t.map(x => `<span class="pick" data-id="${x.id}">${esc(x.name)}</span>`).join('')}</div>` : `<p style="margin:4px 0 0">This QR is on <b>${esc(t[0].name)}</b>’s route.</p>`}
+      <div class="choice">
+        <button class="btn green" id="assist"><span>🤝 Assist</span><small>Send them this QR’s location</small></button>
+        <button class="btn red" id="sab"><span>💥 Sabotage</span><small id="sabsub">Lock their clue here for ${r.sabotageMinutes} min</small></button>
+      </div><div class="err" id="err"></div></div>` : `<div class="card center"><p class="muted">No other team needs this QR right now.</p></div>`}${back}`;
+
+  if (!t.length) return;
+  const chips = document.getElementById('chips');
+  const refresh = () => {
+    chips?.querySelectorAll('.pick').forEach(c => c.classList.toggle('on', +c.dataset.id === sel));
+    const tg = t.find(x => x.id === sel);
+    const left = cdEnd - Date.now();
+    document.getElementById('assist').disabled = !tg || tg.assisted;
+    document.getElementById('sab').disabled = !tg || tg.locked || left > 0;
+    document.getElementById('sabsub').textContent = tg?.locked ? 'Already jammed' : left > 0 ? `Recharging… ${fmt(left)}` : `Lock their clue here for ${r.sabotageMinutes} min`;
+    if (tg?.assisted) document.querySelector('#assist small').textContent = 'You already helped them here';
+  };
+  chips?.addEventListener('click', e => { const c = e.target.closest('.pick'); if (c) { sel = +c.dataset.id; refresh(); } });
+  const act = async kind => {
+    try { const j = await api(`/api/scan/${code}/${kind}`, { method: 'POST', body: { teamId: sel } });
+      toast(j.message); const tg = t.find(x => x.id === sel);
+      if (kind === 'assist') tg.assisted = true; else { tg.locked = true; cdEnd = Date.now() + (j.cooldownLeft || 0); } refresh();
+    } catch (e) { document.getElementById('err').textContent = e.message; }
+  };
+  document.getElementById('assist').onclick = () => act('assist');
+  document.getElementById('sab').onclick = () => { if (confirm('Sabotage this team? They won’t be able to read this clue for a while.')) act('sabotage'); };
+  refresh(); tick = setInterval(refresh, 1000);
+}
+
+route();
+</script>
+</body>
+</html>
