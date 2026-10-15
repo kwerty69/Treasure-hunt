@@ -19,7 +19,7 @@ const put = (k, v) => S_().setJSON(k, v);
 const keys = async prefix => (await S_().list({ prefix })).blobs.map(b => b.key).sort();
 const delPrefix = async prefix => { await Promise.all((await keys(prefix)).map(k => S_().delete(k))); };
 const defaultCfg = () => ({
-  settings: { active: true, sabotageMinutes: 10, cooldownMinutes: 3, eventName: "Campus Treasure Hunt" },
+  settings: { active: true, sabotageMinutes: 10, cooldownMinutes: 3, eventName: "Hasmukh Karkhana", finale: "You cracked the final clue! Run to the organisers and claim your treasure." },
   nextId: 1, teams: [], stations: [],
 });
 const getCfg = async () => (await get("config")) || defaultCfg();
@@ -46,6 +46,10 @@ const body = async req => { try { return await req.json(); } catch { return {}; 
 // ---------- game helpers ----------
 const getProg = async id => (await get(`prog/${id}`)) || { progress: 0, lastAt: 0, finishedAt: null };
 const stationOf = (cfg, id) => cfg.stations.find(s => s.id === id);
+// Clue logic: a station owns the riddle that LEADS TO it. A team's clue after step i = custom override, else riddle of step i+1, else the finale.
+const hintFor = (cfg, stationId) => { const st = stationOf(cfg, stationId); return st ? (st.riddle || `Find “${st.name}”.`) : ""; };
+const clueAt = (cfg, t, i) => { const r = t.route[i]; if (!r) return ""; if (r.clue) return r.clue; const nx = t.route[i + 1]; return nx ? hintFor(cfg, nx.station_id) : cfg.settings.finale; };
+const startClueOf = (cfg, t) => t.start_clue || (t.route[0] ? hintFor(cfg, t.route[0].station_id) : "");
 const lockOf = async (victimId, stationId) => { const l = await get(`lock/${victimId}/${stationId}`); return l && l.until > now() ? l : null; };
 
 async function leaderboard(cfg, withStats = false) {
@@ -80,7 +84,7 @@ export default async (req) => {
   if (!process.env.ADMIN_PASSWORD) return json({ error: "Server not configured: add an ADMIN_PASSWORD environment variable in Netlify, then redeploy." }, 500);
   const url = new URL(req.url), p = url.pathname.replace(/^\/api/, ""), m = req.method;
   try {
-    if (p.startsWith("/admin")) return await admin(req, p, m);
+    if (p.startsWith("/admin")) return await admin(req, p, m, url);
     const cfg = await getCfg(), S = cfg.settings;
 
     if (p === "/public") return json({ eventName: S.eventName });
@@ -97,13 +101,14 @@ export default async (req) => {
 
     if (p === "/me") {
       const pr = await getProg(me.id), total = me.route.length, progress = Math.min(pr.progress, total);
-      const revealed = me.route.slice(0, progress).map((r, idx) => ({ idx, clue: r.clue, station: stationOf(cfg, r.station_id)?.name || "" }));
+      const revealed = me.route.slice(0, progress).map((r, idx) => ({ idx, clue: clueAt(cfg, me, idx), station: stationOf(cfg, r.station_id)?.name || "" }));
+      const myStat = (await get(`stat/${me.id}`)) || {}, hits = (await keys(`hit/${me.id}/`)).length;
       const seenTs = (await get(`seen/${me.id}`)) || 0;
       const evKeys = (await keys(`ev/${me.id}/`)).slice(-30).reverse();
       const events = (await Promise.all(evKeys.map(async k => ({ id: k, ...(await get(k)) }))))
         .filter(e => e.at).map(e => ({ id: e.id, type: e.type, message: e.message, created_at: e.at, seen: e.at <= seenTs }));
       return json({ eventName: S.eventName, active: S.active, team: { id: me.id, name: me.name }, progress, total,
-        finished: total > 0 && progress >= total, startClue: me.start_clue, revealed, events, unseen: events.filter(e => !e.seen).length,
+        finished: total > 0 && progress >= total, startClue: startClueOf(cfg, me), stats: { assists: myStat.assists || 0, sabotages: myStat.sabotages || 0, hits }, revealed, events, unseen: events.filter(e => !e.seen).length,
         leaderboard: await leaderboard(cfg), now: now() });
     }
     if (p === "/events/seen" && m === "POST") { await put(`seen/${me.id}`, now()); return json({ ok: true }); }
@@ -122,11 +127,11 @@ export default async (req) => {
         const finished = p0 + 1 >= total, t = now();
         await put(`prog/${me.id}`, { progress: p0 + 1, lastAt: t, finishedAt: finished ? t : null });
         await addLog({ type: finished ? "finish" : "advance", from: me.id, fromName: me.name, stationName: st.name, step: p0 + 1, total });
-        return json({ ...base, status: finished ? "finished" : "advance", clue: cur.clue, step: p0 + 1, total });
+        return json({ ...base, status: finished ? "finished" : "advance", clue: clueAt(cfg, me, p0), step: p0 + 1, total });
       }
       if (doneIdx >= 0) {
         if (lock) return json({ ...base, status: "locked", until: lock.until, now: now() });
-        return json({ ...base, status: "replay", clue: route[doneIdx].clue, step: doneIdx + 1, total });
+        return json({ ...base, status: "replay", clue: clueAt(cfg, me, doneIdx), step: doneIdx + 1, total });
       }
       const targets = await targetsFor(cfg, st, me);
       const cool = (await get(`cool/${me.id}`)) || 0;
@@ -159,6 +164,7 @@ export default async (req) => {
       await put(`cool/${me.id}`, now());
       await addEvent(target.id, "sabotage", `💥 Someone sabotaged one of your QR codes! You can't read its clue for ${S.sabotageMinutes} minutes.`, st.id);
       await addLog({ type: "sabotage", ...log }); await bump(me.id, "sabotages");
+      await put(`hit/${target.id}/${pad(now())}-${rid()}`, { by: me.id, station: st.id });
       return json({ ok: true, cooldownLeft: S.cooldownMinutes * 60000, message: `${target.name} is locked out of this clue for ${S.sabotageMinutes} minutes.` });
     }
     return json({ error: "not found" }, 404);
@@ -166,7 +172,7 @@ export default async (req) => {
 };
 
 // ---------- admin ----------
-async function admin(req, p, m) {
+async function admin(req, p, m, url) {
   if (p === "/admin/login" && m === "POST") {
     const b = await body(req);
     if (!safeEq(String(b.password || ""), process.env.ADMIN_PASSWORD)) return json({ error: "Wrong admin password." }, 401);
@@ -183,7 +189,7 @@ async function admin(req, p, m) {
       .filter(l => l.until > now()).map(l => { const [, v, s] = l.k.split("/"); return { victimId: +v, stationId: +s, victim: cfg.teams.find(t => t.id === +v)?.name || "?", station: stationOf(cfg, +s)?.name || "?", byTeam: l.byName, until: l.until }; });
     const logKeys = (await keys("log/")).slice(-120).reverse();
     const log = (await Promise.all(logKeys.map(get))).filter(Boolean);
-    const teams = cfg.teams.map(t => { const r = lb.find(x => x.id === t.id); return { id: t.id, name: t.name, password: t.password, start_clue: t.start_clue, route: t.route, progress: r.progress, total: r.total, finishedAt: r.finishedAt }; })
+    const teams = cfg.teams.map(t => { const r = lb.find(x => x.id === t.id); return { id: t.id, name: t.name, password: t.password, start_clue: t.start_clue, route: t.route, effective: t.route.map((_, i) => clueAt(cfg, t, i)), startEffective: startClueOf(cfg, t), progress: r.progress, total: r.total, finishedAt: r.finishedAt }; })
       .sort((a, b) => a.name.localeCompare(b.name));
     return json({ settings: cfg.settings, teams, stations: cfg.stations, locks, leaderboard: lb, log, now: now() });
   }
@@ -192,21 +198,32 @@ async function admin(req, p, m) {
     if (b.active !== undefined) s.active = !!b.active;
     if (b.sabotageMinutes !== undefined) s.sabotageMinutes = Math.max(1, Math.min(120, +b.sabotageMinutes || 10));
     if (b.cooldownMinutes !== undefined) s.cooldownMinutes = Math.max(0, Math.min(60, +b.cooldownMinutes || 0));
-    if (b.eventName !== undefined) s.eventName = clean(b.eventName, 60) || "Campus Treasure Hunt";
+    if (b.eventName !== undefined) s.eventName = clean(b.eventName, 60) || "Hasmukh Karkhana";
+    if (b.finale !== undefined) s.finale = clean(b.finale, 300) || "You cracked the final clue! Run to the organisers and claim your treasure.";
     await saveCfg(cfg); return json(s);
   }
   if (p === "/admin/stations" && m === "POST") {
     const name = clean(b.name, 80); if (!name) return json({ error: "Name required." }, 400);
-    cfg.stations.push({ id: newId(cfg), code: newCode(), name, location: clean(b.location, 200) });
+    cfg.stations.push({ id: newId(cfg), code: newCode(), name, location: clean(b.location, 200), riddle: clean(b.riddle, 600) });
     await saveCfg(cfg); return json({ ok: true });
   }
   if ((mm = p.match(/^\/admin\/stations\/(\d+)$/))) {
     const id = +mm[1], s = stationOf(cfg, id); if (!s) return json({ error: "Not found" }, 404);
-    if (m === "PUT") { s.name = clean(b.name, 80) || s.name; s.location = clean(b.location, 200); await saveCfg(cfg); return json({ ok: true }); }
+    if (m === "PUT") { s.name = clean(b.name, 80) || s.name; s.location = clean(b.location, 200); if (b.riddle !== undefined) s.riddle = clean(b.riddle, 600); await saveCfg(cfg); return json({ ok: true }); }
     if (m === "DELETE") {
+      const usedBy = cfg.teams.map(t => ({ team: t.name, step: t.route.findIndex(r => r.station_id === id) + 1 })).filter(x => x.step > 0);
+      if (usedBy.length && url.searchParams.get("force") !== "1")
+        return json({ error: `“${s.name}” is used in ${usedBy.map(u => `${u.team} (step ${u.step})`).join(", ")}.`, usedBy }, 409);
+      for (const t of cfg.teams) {   // each route is independent: only routes that used this QR change
+        const idx = t.route.findIndex(r => r.station_id === id); if (idx < 0) continue;
+        const pr = await getProg(t.id), wasDone = idx < Math.min(pr.progress, t.route.length);
+        t.route = t.route.filter(r => r.station_id !== id);
+        if (wasDone) await put(`prog/${t.id}`, { ...pr, progress: Math.max(0, pr.progress - 1) });
+      }
       cfg.stations = cfg.stations.filter(x => x.id !== id);
-      cfg.teams.forEach(t => { t.route = t.route.filter(r => r.station_id !== id); });
-      await saveCfg(cfg); return json({ ok: true });
+      await saveCfg(cfg);
+      await Promise.all((await keys("lock/")).filter(k => +k.split("/")[2] === id).concat((await keys("assist/")).filter(k => +k.split("/")[3] === id)).map(k => S_().delete(k)));
+      return json({ ok: true });
     }
   }
   if (p === "/admin/teams" && m === "POST") {
@@ -218,24 +235,48 @@ async function admin(req, p, m) {
   }
   if ((mm = p.match(/^\/admin\/teams\/(\d+)(\/reset)?$/))) {
     const id = +mm[1], t = cfg.teams.find(x => x.id === id); if (!t) return json({ error: "Not found" }, 404);
-    if (mm[2] && m === "POST") { await Promise.all([S_().delete(`prog/${id}`), S_().delete(`cool/${id}`), S_().delete(`seen/${id}`), delPrefix(`ev/${id}/`), delPrefix(`lock/${id}/`)]); return json({ ok: true }); }
+    if (mm[2] && m === "POST") { await Promise.all([S_().delete(`prog/${id}`), S_().delete(`cool/${id}`), S_().delete(`seen/${id}`), delPrefix(`ev/${id}/`), delPrefix(`lock/${id}/`), delPrefix(`hit/${id}/`)]); return json({ ok: true }); }
     if (m === "PUT") {
       if (b.name !== undefined) { const n = clean(b.name, 60); if (n && cfg.teams.some(x => x.id !== id && x.name.toLowerCase() === n.toLowerCase())) return json({ error: "That team name is taken." }, 400); if (n) t.name = n; }
       if (b.start_clue !== undefined) t.start_clue = clean(b.start_clue, 600);
       if (b.password !== undefined) { const pw = String(b.password).trim(); if (pw.length < 3) return json({ error: "Password needs 3+ characters." }, 400); t.password = pw; }
-      if (Array.isArray(b.route)) t.route = b.route.filter(r => stationOf(cfg, +r.station_id)).map(r => ({ station_id: +r.station_id, clue: clean(r.clue, 600) }));
-      await saveCfg(cfg); return json({ ok: true });
+      let info = {};
+      if (Array.isArray(b.route)) {
+        const next = b.route.filter(r => stationOf(cfg, +r.station_id)).map(r => ({ station_id: +r.station_id, clue: clean(r.clue, 600) }));
+        const seen = new Set();
+        for (const r of next) {
+          if (seen.has(r.station_id)) return json({ error: `“${stationOf(cfg, r.station_id).name}” appears twice in this route. A QR can be used only once per route (different teams can share it).` }, 400);
+          seen.add(r.station_id);
+        }
+        // Keep progress honest: a team only keeps credit for the leading steps of the new route it has really scanned.
+        const pr = await getProg(id), done = new Set(t.route.slice(0, Math.min(pr.progress, t.route.length)).map(r => r.station_id));
+        let np = 0; while (np < next.length && done.has(next[np].station_id)) np++;
+        t.route = next;
+        if (np !== pr.progress) await put(`prog/${id}`, { progress: np, lastAt: pr.lastAt, finishedAt: np >= next.length && next.length > 0 ? pr.finishedAt || pr.lastAt : null });
+        info = { progress: np, before: pr.progress };
+      }
+      await saveCfg(cfg); return json({ ok: true, ...info });
     }
     if (m === "DELETE") {
       cfg.teams = cfg.teams.filter(x => x.id !== id); await saveCfg(cfg);
       const assists = (await keys("assist/")).filter(k => { const [, f, to] = k.split("/"); return +f === id || +to === id; });
       const locks = (await keys("lock/")).filter(k => +k.split("/")[1] === id);
-      await Promise.all([S_().delete(`prog/${id}`), S_().delete(`cool/${id}`), S_().delete(`seen/${id}`), S_().delete(`stat/${id}`), delPrefix(`ev/${id}/`), ...assists.map(k => S_().delete(k)), ...locks.map(k => S_().delete(k))]);
+      await Promise.all([S_().delete(`prog/${id}`), S_().delete(`cool/${id}`), S_().delete(`seen/${id}`), S_().delete(`stat/${id}`), delPrefix(`ev/${id}/`), delPrefix(`hit/${id}/`), ...assists.map(k => S_().delete(k)), ...locks.map(k => S_().delete(k))]);
       return json({ ok: true });
     }
   }
+  if (p === "/admin/autoroute" && m === "POST") {
+    // Fair independent routes: each team gets its own order. Rotating one shuffled base list means no two teams stand at the same QR on the same step (while teams <= stations).
+    const ids = cfg.stations.map(x => x.id); if (!ids.length || !cfg.teams.length) return json({ error: "Add stations and teams first." }, 400);
+    const per = Math.max(1, Math.min(ids.length, +b.perTeam || ids.length));
+    const base = ids.map(v => [Math.random(), v]).sort((a, c) => a[0] - c[0]).map(x => x[1]);
+    const shift = Math.max(1, Math.floor(ids.length / cfg.teams.length));
+    cfg.teams.forEach((t, k) => { const off = (k * shift) % ids.length; t.route = Array.from({ length: per }, (_, i) => ({ station_id: base[(off + i) % ids.length], clue: "" })); t.start_clue = ""; });
+    await saveCfg(cfg); await delPrefix("prog/");
+    return json({ ok: true, teams: cfg.teams.length, steps: per });
+  }
   if (p === "/admin/reset" && m === "POST") {
-    await Promise.all(["prog/", "ev/", "lock/", "assist/", "cool/", "seen/", "log/", "stat/"].map(delPrefix));
+    await Promise.all(["prog/", "ev/", "lock/", "assist/", "cool/", "seen/", "log/", "stat/", "hit/"].map(delPrefix));
     return json({ ok: true });
   }
   if ((mm = p.match(/^\/admin\/locks\/(\d+)\/(\d+)$/)) && m === "DELETE") { await S_().delete(`lock/${mm[1]}/${mm[2]}`); return json({ ok: true }); }
