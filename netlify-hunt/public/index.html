@@ -12,12 +12,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js" defer></script>
 </head>
 <body>
+<div class="amb" aria-hidden="true"><span>ゴゴゴ</span><span>宝探し</span><span>ドン</span></div>
 <div class="wrap" id="app"></div>
 <script>
 const $app = document.getElementById('app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let me = null, poll = null, tick = null;
+let muted = false; try { muted = localStorage.getItem('hkMute') === '1'; } catch {}
 
+/* ---------- api ---------- */
 async function api(path, opts = {}) {
   const r = await fetch(path, { method: opts.method || 'GET', headers: { 'Content-Type': 'application/json' },
     body: opts.body ? JSON.stringify(opts.body) : undefined, credentials: 'same-origin' });
@@ -26,60 +29,106 @@ async function api(path, opts = {}) {
   if (!r.ok) throw Object.assign(new Error(j.error || 'Something went wrong'), { data: j });
   return j;
 }
-function toast(msg) {
-  const t = document.createElement('div'); t.className = 'toast rise'; t.textContent = msg;
-  document.body.appendChild(t); setTimeout(() => t.remove(), 3400);
-}
-/* ink-rain "confetti" */
+
+/* ---------- fx helpers ---------- */
+function toast(msg) { const t = document.createElement('div'); t.className = 'toast rise'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3400); }
 function confetti() {
   const c = document.createElement('div'); c.className = 'confetti';
-  for (let i = 0; i < 60; i++) {
-    const p = document.createElement('i');
-    p.style.cssText = `left:${Math.random() * 100}%;height:${14 + Math.random() * 40}px;opacity:${.4 + Math.random() * .6};animation-duration:${.9 + Math.random() * 1.4}s;animation-delay:${Math.random() * .7}s`;
-    c.appendChild(p);
-  }
-  document.body.appendChild(c); setTimeout(() => c.remove(), 3600);
+  for (let i = 0; i < 70; i++) { const p = document.createElement('i');
+    p.style.cssText = `left:${Math.random() * 100}%;height:${14 + Math.random() * 44}px;opacity:${.4 + Math.random() * .6};animation-duration:${.9 + Math.random() * 1.4}s;animation-delay:${Math.random() * .8}s`; c.appendChild(p); }
+  document.body.appendChild(c); setTimeout(() => c.remove(), 3800);
 }
 function flash() { const f = document.createElement('div'); f.className = 'flash'; document.body.appendChild(f); setTimeout(() => f.remove(), 700); }
 const buzz = p => { try { navigator.vibrate?.(p); } catch {} };
 function burstClip(n = 20, inner = .64) {
   const pts = [];
-  for (let i = 0; i < n * 2; i++) {
-    const a = i * Math.PI / n, r = i % 2 ? inner * 50 + Math.random() * 5 : 50 - Math.random() * 5;
-    pts.push(`${(50 + r * Math.cos(a)).toFixed(1)}% ${(50 + r * Math.sin(a)).toFixed(1)}%`);
-  }
+  for (let i = 0; i < n * 2; i++) { const a = i * Math.PI / n, r = i % 2 ? inner * 50 + Math.random() * 5 : 50 - Math.random() * 5;
+    pts.push(`${(50 + r * Math.cos(a)).toFixed(1)}% ${(50 + r * Math.sin(a)).toFixed(1)}%`); }
   return `polygon(${pts.join(',')})`;
 }
-const evText = e => (e.type === 'assist' ? '✚ ' : e.type === 'sabotage' ? '✕ ' : '') + String(e.message).replace(/^[\p{Extended_Pictographic}\uFE0F\s]+/u, '');
 const fmt = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 const clear = () => { clearInterval(poll); clearInterval(tick); };
+const evText = e => (e.type === 'assist' ? '✚ ' : e.type === 'sabotage' ? '✕ ' : '') + String(e.message).replace(/^[\p{Extended_Pictographic}️\s]+/u, '');
+
+/* tiny synth sound effects (no files) */
+let AC = null;
+function snd(kind) {
+  if (muted) return;
+  const seqs = {
+    up: [[523, 0, .09], [659, .09, .09], [784, .18, .09], [1047, .27, .24]],
+    win: [[523, 0, .12], [659, .12, .12], [784, .24, .12], [1047, .36, .12], [784, .48, .1], [1047, .58, .1], [1319, .68, .45]],
+    warn: [[110, 0, .35, 'sawtooth'], [98, .13, .35, 'sawtooth'], [82, .26, .45, 'sawtooth']],
+    ally: [[660, 0, .1], [880, .1, .1], [1175, .2, .25]],
+    hit: [[200, 0, .1, 'square'], [140, .08, .16, 'square']],
+  }[kind] || [];
+  try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); const t = AC.currentTime;
+    for (const [f, d, l, w] of seqs) { const o = AC.createOscillator(), g = AC.createGain(); o.type = w || 'triangle'; o.frequency.value = f;
+      g.gain.setValueAtTime(.0001, t + d); g.gain.exponentialRampToValueAtTime(.11, t + d + .015); g.gain.exponentialRampToValueAtTime(.0001, t + d + l);
+      o.connect(g); g.connect(AC.destination); o.start(t + d); o.stop(t + d + l + .03); }
+  } catch {}
+}
+function toggleMute() { muted = !muted; try { localStorage.setItem('hkMute', muted ? '1' : '0'); } catch {} const c = document.getElementById('mutechip'); if (c) c.textContent = muted ? '♪✕' : '♪'; if (!muted) snd('ally'); }
+
+/* full-screen anime hit */
+function slam(text, sub, tone = 'up', ms = 1800) {
+  return new Promise(res => {
+    const o = document.createElement('div'); o.className = 'ov ' + tone;
+    o.innerHTML = `<div class="speed"></div><div class="burst" style="clip-path:${burstClip(22)}"></div><div class="burst in" style="clip-path:${burstClip(16, .7)}"></div>
+      <div class="sfx">${text}</div>${sub ? `<div class="ovsub">${sub}</div>` : ''}<div class="ovtap">TAP TO CONTINUE</div>`;
+    document.body.appendChild(o); snd(tone === 'warn' ? 'warn' : tone === 'ally' ? 'ally' : tone === 'win' ? 'win' : 'up');
+    buzz(tone === 'warn' ? [200, 60, 200, 60, 300] : tone === 'win' ? [100, 50, 100, 50, 300] : [60, 40, 140]);
+    const done = () => { if (!o.isConnected || o.classList.contains('bye')) return; o.classList.add('bye'); setTimeout(() => { o.remove(); res(); }, 250); };
+    o.addEventListener('click', done); setTimeout(done, ms);
+  });
+}
+
+/* ink burst wherever you tap */
+const TAPCLIP = burstClip(9, .45);
+document.addEventListener('pointerdown', e => {
+  if (e.target.closest('#scanner,#intro')) return;
+  const t = document.createElement('div'); t.className = 'tapfx'; t.style.cssText = `left:${e.clientX}px;top:${e.clientY}px;clip-path:${TAPCLIP}`;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 450);
+});
+const slashT = () => { const s = document.createElement('div'); s.className = 'trs'; document.body.appendChild(s); setTimeout(() => s.remove(), 520); };
+
+/* sigil badge from team name */
+function sigil(name, size = '') {
+  const w = String(name).trim().split(/\s+/).filter(Boolean), ini = ((w[0]?.[0] || '?') + (w[1]?.[0] || w[0]?.[1] || '')).toUpperCase();
+  let h = 0; for (const c of String(name)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return `<div class="sigil ${['', 'v', 'g'][h % 3]} ${size}">${esc(ini)}</div>`;
+}
 
 const TICK = 'HASMUKH KARKHANA ✦ TREASURE HUNT ✦ 宝探し ✦ FIND THE QR ✦ TRUST NO ONE ✦ ';
 const ticker = () => `<div class="ticker"><div>${TICK.repeat(6)}</div></div>`;
-const topbar = (right = '') => `${ticker()}<div class="top"><div class="brand"><div class="logo">HK</div><div>HASMUKH KARKHANA<small>TREASURE HUNT</small></div></div>${right}</div>`;
-const stage = (sfx, opts = {}) => `<div class="stage ${opts.shake ? 'shake' : ''}"><div class="speed"></div>
+const topbar = (right = '') => `${ticker()}<div class="top"><div class="brand"><div class="logo">HK</div><div>HASMUKH KARKHANA<small>TREASURE HUNT</small></div></div><div class="row tight" style="gap:8px"><span class="chip mute" id="mutechip" onclick="toggleMute()">${muted ? '♪✕' : '♪'}</span>${right}</div></div>`;
+const stage = (sfx, o = {}) => `<div class="stage ${o.shake ? 'shake' : ''}" ${o.compact ? 'style="min-height:240px"' : ''}><div class="speed"></div>
   <div class="burst" style="clip-path:${burstClip()}"></div><div class="burst in" style="clip-path:${burstClip(16, .7)}"></div>
-  <div class="sfx ${opts.sm ? 'sm' : ''}">${sfx}</div>${opts.kicker ? `<div class="kicker">${opts.kicker}</div>` : ''}</div>`;
+  <div class="sfx ${o.sm ? 'sm' : ''} ${o.glitch ? 'glitch' : ''}">${sfx}</div>${o.kicker ? `<div class="kicker">${o.kicker}</div>` : ''}</div>`;
 
 /* ---------- intro ---------- */
 function intro(done) {
   const seen = (() => { try { return sessionStorage.getItem('hkIntro'); } catch { return 1; } })();
   if (seen) return done();
   const el = document.createElement('div'); el.id = 'intro';
+  el.style.setProperty('--ang', `-${(Math.atan2(innerHeight, innerWidth) * 180 / Math.PI).toFixed(1)}deg`);
   el.innerHTML = `<div class="speed"></div><div class="dots"></div><div class="kanji">宝探し</div>
+    <div class="rumble l">ゴゴゴゴゴ</div><div class="rumble r">ゴゴゴゴゴ</div>
     <div class="bar t"></div><div class="bar b"></div>
-    <div class="core"><div class="pre">— PRESENTING —</div>
+    <div class="core"><div class="ep">第一話 · EPISODE 01</div>
       <h1 class="l">HASMUKH</h1><h1 class="r"><span>KARKHANA</span></h1>
       <div class="sub">THE GREAT TREASURE HUNT</div><div class="tap">▶ TAP TO ENTER ◀</div></div>
-    <div class="skip">TAP ANYWHERE</div><div class="slash"></div>`;
+    <div class="stk s1">ドン!!</div><div class="stk s2">ババーン</div>
+    <div class="half a"></div><div class="half b"></div><div class="cutline"></div>
+    <div class="slash"></div>`;
   document.body.appendChild(el);
+  snd('hit'); setTimeout(() => { snd('up'); buzz([30, 20, 120]); }, 1150);
   let gone = false;
   const enter = () => {
     if (gone) return; gone = true;
     try { sessionStorage.setItem('hkIntro', '1'); } catch {}
-    buzz([40, 30, 90]); el.classList.add('out'); setTimeout(done, 280); setTimeout(() => el.remove(), 900);
+    snd('ally'); buzz([40, 30, 90]); el.classList.add('out'); setTimeout(done, 280); setTimeout(() => el.remove(), 900);
   };
-  el.addEventListener('click', enter); window.addEventListener('keydown', enter, { once: true });
+  el.addEventListener('click', enter);
 }
 
 /* ---------- in-app QR scanner ---------- */
@@ -95,8 +144,8 @@ function openScanner() {
   const v = o.querySelector('video'), cv = o.querySelector('canvas'), ctx = cv.getContext('2d', { willReadFrequently: true }), msg = o.querySelector('#smsg');
   let stream = null, raf = 0, stopped = false, n = 0;
   const say = (t, bad) => { msg.textContent = t; msg.classList.toggle('bad', !!bad); };
-  const close = () => { stopped = true; cancelAnimationFrame(raf); stream?.getTracks().forEach(t => t.stop()); window.removeEventListener('keydown', esc_); o.remove(); };
   const esc_ = e => { if (e.key === 'Escape') close(); };
+  const close = () => { stopped = true; cancelAnimationFrame(raf); stream?.getTracks().forEach(t => t.stop()); window.removeEventListener('keydown', esc_); o.remove(); };
   window.addEventListener('keydown', esc_);
   const hit = txt => { const c = parseCode(txt); if (!c) { say('That QR isn’t from this hunt', true); return false; } buzz(60); close(); go('/q/' + c); return true; };
   const det = ('BarcodeDetector' in window) ? (() => { try { return new BarcodeDetector({ formats: ['qr_code'] }); } catch { return null; } })() : null;
@@ -109,11 +158,7 @@ function openScanner() {
     }
     return null;
   };
-  const loop = async () => {
-    if (stopped) return;
-    if (v.readyState >= 2 && ++n % 4 === 0) { const t = await decode(v); if (t && hit(t)) return; }
-    raf = requestAnimationFrame(loop);
-  };
+  const loop = async () => { if (stopped) return; if (v.readyState >= 2 && ++n % 4 === 0) { const t = await decode(v); if (t && hit(t)) return; } raf = requestAnimationFrame(loop); };
   o.querySelector('#sx').onclick = close;
   o.querySelector('#sfile').onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
@@ -134,14 +179,15 @@ async function route() {
   if (m) return scanView(m[1]);
   homeView();
 }
-function fail(e) { $app.innerHTML = topbar() + `<div class="card hot center">${stage('OFFLINE!', { sm: 1 })}<p class="muted">${esc(e.message)}</p><button class="btn" onclick="route()">Try again</button></div>`; }
-function go(path) { history.pushState({}, '', path); route(); }
+function fail(e) { $app.innerHTML = topbar() + `<div class="card hot center">${stage('OFFLINE!', { sm: 1, compact: 1 })}<p class="muted">${esc(e.message)}</p><button class="btn" onclick="route()">Try again</button></div>`; }
+function go(path) { slashT(); setTimeout(() => { history.pushState({}, '', path); route(); }, 180); }
 window.addEventListener('popstate', route);
 
 /* ---------- login ---------- */
 function loginView() {
   $app.innerHTML = `${ticker()}<div class="rise" style="padding-top:22px">
-    <div class="login-title"><div class="jp">宝 探 し</div><h1>HASMUKH<br><span>KARKHANA</span></h1><p>TREASURE HUNT</p></div>
+    <div class="login-title" style="position:relative"><span class="sticker a">ドン!!</span><span class="sticker b">ゴゴゴ</span>
+      <div class="jp">第一話 · 宝 探 し</div><h1>HASMUKH<br><span>KARKHANA</span></h1><p>TREASURE HUNT</p></div>
     <form class="card hot" id="f"><h3>Team login</h3>
       <label style="margin-top:0">Team name</label><input name="team" autocomplete="username" autocapitalize="off" required>
       <label>Password</label><input name="password" type="password" autocomplete="current-password" required>
@@ -151,31 +197,38 @@ function loginView() {
     <p class="center muted small" style="font-family:var(--head);letter-spacing:.2em">YOUR ORGANISER GAVE YOU A TEAM NAME + PASSWORD</p></div>`;
   document.getElementById('f').onsubmit = async e => {
     e.preventDefault(); const f = new FormData(e.target);
-    try { await api('/api/login', { method: 'POST', body: { team: f.get('team'), password: f.get('password') } }); flash(); route(); }
-    catch (er) { document.getElementById('err').textContent = '✕ ' + er.message; buzz(200); }
+    try { await api('/api/login', { method: 'POST', body: { team: f.get('team'), password: f.get('password') } }); flash(); snd('up'); route(); }
+    catch (er) { document.getElementById('err').textContent = '✕ ' + er.message; buzz(200); snd('hit'); }
   };
 }
 async function logout() { await api('/api/logout', { method: 'POST' }).catch(() => {}); me = null; history.replaceState({}, '', '/'); route(); }
 
 /* ---------- home ---------- */
 function gauge(done, total, finished) {
-  const dense = total > 24;
-  return `<div class="gauge ${dense ? 'dense' : ''}">${Array.from({ length: total }, (_, i) => `<i class="${i < done ? 'on' : (!finished && i === done ? 'now' : '')}"></i>`).join('')}</div>`;
+  const dense = total > 16;
+  return `<div class="gauge ${dense ? 'dense' : ''}">${Array.from({ length: total }, (_, i) => `<i class="${i < done ? 'on' : (!finished && i === done ? 'now' : '')}"><b>${i + 1}</b></i>`).join('')}</div>`;
 }
 function homeView() {
   const d = me;
   const last = d.revealed[d.revealed.length - 1];
   const clueText = d.finished ? null : (last ? last.clue : d.startClue);
   const unseen = d.events.filter(e => !e.seen);
-  const head = d.finished ? 'MISSION COMPLETE!' : d.progress === 0 ? 'THE HUNT BEGINS' : 'KEEP HUNTING';
+  const rank = d.leaderboard.findIndex(t => t.id === d.team.id) + 1;
+  const st = d.stats || { assists: 0, sabotages: 0, hits: 0 };
+  const head = d.finished ? 'MISSION COMPLETE' : d.progress === 0 ? 'THE HUNT BEGINS' : 'KEEP HUNTING';
   $app.innerHTML = `
   ${topbar(`<span class="chip" onclick="logout()"><i class="dot"></i>${esc(d.team.name)} ✕</span>`)}
   ${!d.active ? `<div class="notice">⏸ THE HUNT IS PAUSED BY THE ORGANISERS. HANG TIGHT.</div>` : ''}
-  <div class="card hot hero rise"><div class="eyebrow">Squad</div>
-    <div class="big-n">${d.progress}<span>/${d.total}</span></div>
-    <h2>${esc(d.team.name)}</h2>
+  <div class="card hot player rise">
+    <div class="plhead">${sigil(d.team.name, '')}<div><span class="rankbadge">RANK #${rank || '-'}</span><h2>${esc(d.team.name)}</h2></div></div>
     ${gauge(d.progress, d.total, d.finished)}
-    <div class="eyebrow" style="margin:6px 0 0">${head} — ${d.finished ? 'ALL QRs FOUND' : `${d.total - d.progress} QR${d.total - d.progress === 1 ? '' : 'S'} LEFT`}</div>
+    <div class="eyebrow" style="margin:2px 0 0">${head} — ${d.finished ? 'ALL QRs FOUND' : `${d.total - d.progress} QR${d.total - d.progress === 1 ? '' : 'S'} LEFT`}</div>
+    <div class="stats">
+      <div class="stat y"><b>${d.progress}/${d.total}</b><span>FOUND</span></div>
+      <div class="stat g"><b>${st.assists}</b><span>ASSISTS</span></div>
+      <div class="stat"><b>${st.sabotages}</b><span>SABOTAGES</span></div>
+      <div class="stat"><b>${st.hits}</b><span>TIMES HIT</span></div>
+    </div>
   </div>
 
   ${unseen.map(e => `<div class="notice ${e.type} rise">${esc(evText(e))}<small>${new Date(e.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></div>`).join('')}
@@ -193,8 +246,16 @@ function homeView() {
     ${d.revealed.map(r => `<div class="item"><div class="num">${r.idx + 1}</div><div style="font-family:var(--hand);font-weight:700;font-size:17px">${esc(r.clue)}</div></div>`).join('')}</div></details></div>` : ''}
 
   <div class="card"><h3>Rankings</h3>
-    ${d.leaderboard.map((t, i) => `<div class="lb ${t.id === d.team.id ? 'me' : ''}"><div class="pos">${i + 1}</div><div class="nm">${esc(t.name)}${t.finishedAt ? ' <span class="fin">★</span>' : ''}</div><div class="bar"><i style="width:${t.total ? t.progress / t.total * 100 : 0}%"></i></div><div class="small muted">${t.progress}/${t.total}</div></div>`).join('') || '<p class="muted">No teams yet.</p>'}
+    ${d.leaderboard.map((t, i) => `<div class="lb ${t.id === d.team.id ? 'me' : ''} ${i === 0 ? 't1' : ''}"><div class="pos">${i + 1}</div><div class="nm">${esc(t.name)}${t.finishedAt ? ' <span class="fin">★</span>' : ''}</div><div class="bar"><i style="width:${t.total ? t.progress / t.total * 100 : 0}%"></i></div><div class="small muted">${t.progress}/${t.total}</div></div>`).join('') || '<p class="muted">No teams yet.</p>'}
   </div>
+
+  <div class="card"><details><summary>How it works</summary>
+    <ol class="rules">
+      <li>Your route is <b>yours alone</b>. Other teams hunt different QRs in a different order.</li>
+      <li>Scan your next QR to unlock its clue. Each clue points to the QR after it.</li>
+      <li>Stumble on someone else’s QR? <b>Assist</b> sends them its location. <b>Sabotage</b> jams their clue for a while. Sabotage needs time to recharge.</li>
+      <li>First squad to finish wins the treasure.</li>
+    </ol></details></div>
 
   ${d.events.length > unseen.length ? `<div class="card"><details><summary>Earlier messages</summary><div style="margin-top:12px">${d.events.filter(e => e.seen).map(e => `<div class="notice ${e.type}">${esc(evText(e))}</div>`).join('')}</div></details></div>` : ''}`;
 
@@ -203,58 +264,65 @@ function homeView() {
     e.preventDefault(); let c = new FormData(e.target).get('c').trim().toLowerCase();
     c = c.split('/q/').pop(); if (c) go('/q/' + c);
   };
-  if (unseen.length) api('/api/events/seen', { method: 'POST' }).catch(() => {});
+  if (unseen.length) {
+    api('/api/events/seen', { method: 'POST' }).catch(() => {});
+    const hitEv = unseen.find(e => e.type === 'sabotage'), allyEv = unseen.find(e => e.type === 'assist');
+    if (hitEv) slam('SABOTAGED!', 'ANOTHER TEAM JAMMED ONE OF YOUR QRs', 'warn', 2200);
+    else if (allyEv) slam('ALLY SIGNAL', 'A TEAM SENT YOU A LOCATION', 'ally', 2200);
+  }
   poll = setInterval(async () => {
     try { const prev = me.events.length + '|' + me.progress + '|' + me.leaderboard.map(t => t.progress).join();
       me = await api('/api/me');
       const cur = me.events.length + '|' + me.progress + '|' + me.leaderboard.map(t => t.progress).join();
-      if (prev !== cur && !document.activeElement?.matches('input')) { if (me.events.length > prev.split('|')[0]) buzz([80, 40, 80]); homeView(); } } catch {}
+      if (prev !== cur && !document.activeElement?.matches('input') && !document.getElementById('scanner')) homeView(); } catch {}
   }, 6000);
 }
 
 /* ---------- scan ---------- */
 async function scanView(code) {
-  $app.innerHTML = topbar() + `<div class="card center"><div class="stage"><div class="speed"></div><div class="sfx sm">SCANNING…</div></div></div>`;
+  $app.innerHTML = topbar() + `<div class="card center"><div class="stage" style="min-height:200px"><div class="speed"></div><div class="sfx sm">SCANNING…</div></div></div>`;
   let r;
   try { r = await api('/api/scan/' + code); } catch (e) { return e.login ? route() : fail(e); }
   const back = `<button class="btn ghost" style="margin-top:6px" onclick="go('/')">◀ Back to my quest</button>`;
   const head = topbar(`<span class="chip" onclick="go('/')">Home</span>`);
 
-  if (r.status === 'unknown') { $app.innerHTML = head + `<div class="card hot center">${stage('WHO?!', { shake: 1, kicker: 'THAT QR ISN’T PART OF THE HUNT' })}</div>` + back; return; }
+  if (r.status === 'unknown') { $app.innerHTML = head + `<div class="card hot center">${stage('WHO?!', { shake: 1, kicker: 'THAT QR ISN’T PART OF THE HUNT' })}</div>` + back; snd('hit'); return; }
   if (r.status === 'inactive') { $app.innerHTML = head + `<div class="card hot center">${stage('PAUSED', { kicker: 'COME BACK WHEN THE ORGANISERS RESTART IT' })}</div>` + back; return; }
 
   if (r.status === 'advance' || r.status === 'finished' || r.status === 'replay') {
     const fin = r.status === 'finished', rep = r.status === 'replay';
     $app.innerHTML = head + `${stage(fin ? 'VICTORY!' : rep ? 'REVISITED' : 'FOUND IT!', { shake: !rep, sm: rep, kicker: `<b class="${fin ? 'ok' : ''}">${rep ? 'CLUE' : 'STEP'} ${r.step}/${r.total}</b> &nbsp;${esc(r.station)}` })}
       <div class="parch rise" style="animation-delay:.6s"><div class="eyebrow">${fin ? 'Final message' : 'Your next clue'}</div>${esc(r.clue)}</div>${back}`;
-    if (!rep) { flash(); confetti(); buzz(fin ? [100, 50, 100, 50, 300] : [60, 40, 140]); }
+    if (!rep) { flash(); confetti(); slam(fin ? 'VICTORY!' : 'LEVEL UP!', fin ? 'ALL QRs FOUND — YOU WIN!' : `STEP ${r.step} OF ${r.total} CLEARED`, fin ? 'win' : 'up', fin ? 2600 : 1500); }
     return;
   }
 
   if (r.status === 'locked') {
     const end = Date.now() + (r.until - r.now);
-    $app.innerHTML = head + `<div class="card hot center">${stage('JAMMED!', { shake: 1, kicker: 'ANOTHER TEAM SABOTAGED THIS CLUE' })}
+    $app.innerHTML = head + `<div class="card hot center">${stage('JAMMED!', { shake: 1, glitch: 1, kicker: 'ANOTHER TEAM SABOTAGED THIS CLUE' })}
       <div class="hazard"></div><div class="eyebrow">Unlocks in</div><div class="timer" id="cd">${fmt(end - Date.now())}</div><div class="hazard"></div>
-      <p class="muted small">Hunt other QRs meanwhile — or find a way to help someone else.</p></div>${back}`;
-    buzz([200, 60, 200]);
+      <p class="muted small">Hunt other QRs meanwhile, or find a way to help someone else.</p></div>${back}`;
+    buzz([200, 60, 200]); snd('warn');
     tick = setInterval(() => { const left = end - Date.now(); const el = document.getElementById('cd');
       if (left <= 0) { clear(); scanView(code); } else if (el) el.textContent = fmt(left); }, 500);
     return;
   }
 
-  // foreign / notyet
+  // foreign / not yet: versus screen
   const t = r.targets || [];
   const early = r.status === 'notyet';
   let sel = t.length === 1 ? t[0].id : null;
   let cdEnd = Date.now() + (r.cooldownLeft || 0);
-  $app.innerHTML = head + `<div class="card hot center">${stage(early ? 'TOO EARLY!' : 'INTRUDER!', { shake: 1, kicker: early ? 'FOLLOW YOUR CLUES IN ORDER' : 'THIS QR BELONGS TO ANOTHER TEAM' })}</div>
-    ${t.length ? `<div class="card rise"><h3>Choose your move</h3>
+  const vsR = () => { const tg = t.find(x => x.id === sel); return tg ? `${sigil(tg.name, 'xl')}<div class="nm">${esc(tg.name)}</div><div class="tag">TARGET</div>` : `<div class="q">?</div><div class="tag">PICK A TARGET</div>`; };
+  $app.innerHTML = head + `<div class="card hot center">${stage(early ? 'TOO EARLY!' : 'INTRUDER!', { shake: 1, compact: 1, kicker: early ? 'THIS QR COMES LATER ON YOUR ROUTE' : 'THIS QR ISN’T ON YOUR ROUTE' })}</div>
+    ${t.length ? `<div class="vs rise"><div class="L">${sigil(me.team.name, 'xl')}<div class="nm">${esc(me.team.name)}</div><div class="tag">YOU</div></div><div class="R" id="vsR">${vsR()}</div><div class="vsb">VS</div></div>
+    <div class="card rise"><h3>Choose your move</h3>
       ${t.length > 1 ? `<label style="margin-top:0">Whose QR is this?</label><div class="chips" id="chips">${t.map(x => `<span class="pick" data-id="${x.id}">${esc(x.name)}</span>`).join('')}</div>` : `<p style="margin:0">This QR is on <b>${esc(t[0].name)}</b>’s route.</p>`}
       <div class="choice">
         <button class="btn green" id="assist"><span>✚ Assist</span><small>Send them this QR’s location</small></button>
         <button class="btn red" id="sab"><span>✕ Sabotage</span><small id="sabsub">Lock their clue here for ${r.sabotageMinutes} min</small></button>
       </div><div class="err" id="err"></div></div>` : `<div class="card center"><p class="muted">No other team needs this QR right now.</p></div>`}${back}`;
-
+  snd('hit');
   if (!t.length) return;
   const chips = document.getElementById('chips');
   const refresh = () => {
@@ -265,13 +333,14 @@ async function scanView(code) {
     document.getElementById('sabsub').textContent = tg?.locked ? 'Already jammed' : left > 0 ? `Recharging… ${fmt(left)}` : `Lock their clue here for ${r.sabotageMinutes} min`;
     if (tg?.assisted) document.querySelector('#assist small').textContent = 'You already helped them here';
   };
-  chips?.addEventListener('click', e => { const c = e.target.closest('.pick'); if (c) { sel = +c.dataset.id; refresh(); } });
+  chips?.addEventListener('click', e => { const c = e.target.closest('.pick'); if (c) { sel = +c.dataset.id; document.getElementById('vsR').innerHTML = vsR(); refresh(); } });
   const act = async kind => {
     try { const j = await api(`/api/scan/${code}/${kind}`, { method: 'POST', body: { teamId: sel } });
-      toast(j.message); flash(); buzz(kind === 'assist' ? [60, 40, 60] : [150, 50, 250]);
       const tg = t.find(x => x.id === sel);
-      if (kind === 'assist') tg.assisted = true; else { tg.locked = true; cdEnd = Date.now() + (j.cooldownLeft || 0); } refresh();
-    } catch (e) { document.getElementById('err').textContent = '✕ ' + e.message; }
+      if (kind === 'assist') { tg.assisted = true; slam('ALLY!', `LOCATION SENT TO ${esc(tg.name.toUpperCase())}`, 'ally', 1700); }
+      else { tg.locked = true; cdEnd = Date.now() + (j.cooldownLeft || 0); slam('SABOTAGE!!', `${esc(tg.name.toUpperCase())} IS JAMMED`, 'warn', 1900); }
+      flash(); refresh();
+    } catch (e) { document.getElementById('err').textContent = '✕ ' + e.message; snd('hit'); }
   };
   document.getElementById('assist').onclick = () => act('assist');
   let armed = false;
