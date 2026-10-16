@@ -428,3 +428,102 @@ html.inv{filter:invert(1)}
 .top .brand{font-size:19px;min-width:0}
 .top .chip{max-width:150px;overflow:hidden;text-overflow:ellipsis}
 .top>.row{flex:0 1 auto;min-width:0}
+
+/* =====================================================================
+   V4 — MOTION LAYER  (spotlight, parallax, halftone, aura, tilt, reveals, sparks)
+   ===================================================================== */
+@property --aura{syntax:'<angle>';inherits:false;initial-value:0deg}
+:root{--mx:50vw;--my:30vh;--px:0;--py:0}
+.amb{translate:calc(var(--px)*-16px) calc(var(--py)*-16px);transition:translate .25s ease-out}
+.amb::before{content:"";position:absolute;inset:0;background:radial-gradient(420px circle at var(--mx) var(--my),rgba(124,58,237,.22),rgba(255,197,51,.05) 45%,transparent 70%)}
+.amb::after{content:"";position:absolute;inset:-12px;background:radial-gradient(rgba(189,167,240,.16) 1.2px,transparent 1.7px) 0 0/12px 12px;
+  -webkit-mask-image:radial-gradient(circle at var(--mx) var(--my),#000,transparent 55%);mask-image:radial-gradient(circle at var(--mx) var(--my),#000,transparent 55%);animation:htdrift 9s linear infinite}
+@keyframes htdrift{to{transform:translate(12px,12px)}}
+
+/* rotating aura border on the player card */
+.player{isolation:isolate}
+.player::after{content:"";position:absolute;inset:-3px;width:auto;height:auto;right:-3px;bottom:-3px;left:-3px;top:-3px;z-index:-1;padding:3px;pointer-events:none;
+  background:conic-gradient(from var(--aura),var(--gold),var(--violet),#fff 18%,var(--green) 30%,var(--violet),var(--gold));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+  animation:aura 5s linear infinite;opacity:.9}
+@keyframes aura{to{--aura:360deg}}
+
+/* title shimmer */
+.player h2{background:linear-gradient(100deg,#fff 0 38%,var(--gold) 46%,#fff 54% 100%) 0 0/250% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-shadow:none;filter:drop-shadow(3px 3px 0 var(--violet2));animation:shim 4.5s ease-in-out infinite}
+@keyframes shim{0%,30%{background-position:120% 0}70%,100%{background-position:-60% 0}}
+
+/* rank 1 pulse */
+.lb.t1 .nm{animation:t1 1.6s ease-in-out infinite alternate}
+@keyframes t1{to{color:var(--gold);text-shadow:0 0 12px rgba(255,197,51,.6)}}
+
+/* gauge lights up cell by cell */
+.gauge i.on{animation:cell .45s cubic-bezier(.2,1.6,.4,1) both;animation-delay:calc(var(--i,0)*70ms + .4s)}
+@keyframes cell{from{transform:skew(-22deg) scale(.2);filter:brightness(3)}60%{filter:brightness(2)}to{transform:skew(-22deg)}}
+.gauge i.now{position:relative}
+
+/* stat tiles */
+.stat{transition:transform .18s,border-color .18s,background .18s}
+.stat:hover{transform:skew(-4deg) translateY(-3px);border-color:var(--gold);background:rgba(255,197,51,.1)}
+
+/* radar ping on the scan button */
+.btn.scan::before{content:"";position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border:3px solid #000;border-radius:50%;opacity:0;animation:ping 2.4s ease-out infinite;pointer-events:none}
+@keyframes ping{0%{transform:scale(.4);opacity:.7}100%{transform:scale(14);opacity:0}}
+
+/* scroll reveal: panels slam in from alternating sides */
+.wrap>.rv{animation:none!important;opacity:0;translate:var(--rx,-40px) 26px;rotate:var(--rr,-1.6deg);transition:opacity .45s ease,translate .6s cubic-bezier(.2,1.2,.3,1),rotate .6s cubic-bezier(.2,1.2,.3,1)}
+.wrap>.rv:nth-child(even){--rx:40px;--rr:1.6deg}
+.wrap>.rv.in{opacity:1;translate:0 0;rotate:0deg}
+
+/* clue words appear like ink strokes */
+.parch .w{display:inline-block;opacity:0;transform:translateY(8px) scale(1.25);filter:blur(3px);animation:inkw .42s cubic-bezier(.2,1.2,.4,1) forwards;animation-delay:calc(var(--d)*45ms + .55s)}
+@keyframes inkw{to{opacity:1;transform:none;filter:none}}
+.parch::before{content:"";position:absolute;top:0;bottom:0;left:-30%;width:26%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.5),transparent);transform:skewX(-18deg);animation:shine 5s 1.2s ease-in-out infinite;pointer-events:none}
+
+/* tilt + ripple */
+[data-tilt]{transition:rotate .35s cubic-bezier(.2,1,.3,1),translate .35s cubic-bezier(.2,1,.3,1);will-change:rotate}
+.btn{position:relative;overflow:hidden}
+.rip{position:absolute;border-radius:50%;background:rgba(0,0,0,.35);width:12px;height:12px;margin:-6px 0 0 -6px;pointer-events:none;animation:rip .6s ease-out forwards}
+.btn.ghost .rip,.btn.red .rip{background:rgba(255,255,255,.4)}
+@keyframes rip{to{transform:scale(34);opacity:0}}
+.btn:active{transform:scale(.97) skew(-1deg)}
+
+/* spark canvas + quake */
+#fxc{position:fixed;inset:0;width:100%;height:100%;z-index:130;pointer-events:none}
+.quake{animation:quake .5s linear}
+@keyframes quake{10%{translate:-9px 4px}20%{translate:8px -5px}30%{translate:-7px -3px}40%{translate:6px 5px}55%{translate:-4px 2px}70%{translate:3px -2px}100%{translate:0 0}}
+
+/* stage: slow spin of speed lines, pulsing core */
+.stage .speed{animation:spin 70s linear infinite}
+.stage .burst:not(.in){animation:burst .5s cubic-bezier(.2,1.6,.4,1) both,bpulse 1.8s .5s ease-in-out infinite alternate}
+@keyframes bpulse{to{scale:1.06;rotate:3deg}}
+@keyframes spin{to{rotate:360deg}}
+
+/* brand glitch every few seconds */
+.brand>div:last-child{animation:bglitch 6s steps(1) infinite}
+@keyframes bglitch{0%,94%,100%{text-shadow:none;translate:0}95%{text-shadow:-2px 0 var(--violet),2px 0 var(--gold);translate:2px 0}97%{text-shadow:2px 0 var(--green),-2px 0 var(--violet);translate:-2px 0}}
+.logo{animation:logo 4s ease-in-out infinite}
+@keyframes logo{50%{transform:skew(-8deg) rotate(3deg) scale(1.06)}}
+
+/* intro power meter */
+#intro .pw{position:absolute;left:50%;bottom:calc(3.5vh + env(safe-area-inset-bottom,0px));translate:-50% 0;width:min(78vw,360px);z-index:5;text-align:center;opacity:0;animation:kfade .4s .3s forwards}
+#intro .pw b{display:block;font:400 clamp(18px,5vw,26px) var(--display);letter-spacing:.2em;color:var(--gold);text-shadow:2px 2px 0 #000;margin-bottom:6px}
+#intro .pw div{height:12px;border:2px solid #fff;transform:skew(-20deg);background:#000;overflow:hidden}
+#intro .pw i{display:block;height:100%;width:0;background:repeating-linear-gradient(-45deg,var(--gold) 0 6px,#fff 6px 9px);transition:width .1s linear}
+#intro.out .pw{opacity:0}
+#intro .crack{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:0;animation:kfade .1s 1.15s forwards,crk .5s 1.15s both}
+@keyframes crk{from{clip-path:circle(0)}to{clip-path:circle(80%)}}
+
+.sfx{white-space:nowrap}
+.stage.cpt .burst{width:250px}.stage.cpt .burst.in{width:218px}
+.stage.cpt{padding:36px 0 22px}
+/* shared (no-drama) screen */
+.sync{--c:var(--lav)}
+.sync .sfx{color:var(--lav)}
+.sync .burst:not(.in){background:var(--violet2)}
+
+@media (prefers-reduced-motion:reduce){
+  .amb::after,.player::after,.player h2,.lb.t1 .nm,.btn.scan::before,.stage .speed,.stage .burst,.brand>div:last-child,.logo,.parch::before{animation:none!important}
+  .parch .w{animation:none;opacity:1;transform:none;filter:none}
+  .wrap>.rv{opacity:1;translate:0 0;rotate:0deg;transition:none}
+  #fxc{display:none}
+}
