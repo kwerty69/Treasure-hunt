@@ -527,3 +527,46 @@ html.inv{filter:invert(1)}
   .wrap>.rv{opacity:1;translate:0 0;rotate:0deg;transition:none}
   #fxc{display:none}
 }
+
+/* =====================================================================
+   V5 — EVEN CRAZIER
+   ===================================================================== */
+#rain{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.55}
+.amb{translate:calc(var(--px)*-16px) calc(var(--py)*-16px - var(--sy,0)*60px)}
+
+/* letters fly in, then bob */
+.sfx .ch{display:inline-block;animation:chin .55s cubic-bezier(.2,1.8,.4,1) both,chbob 1.5s calc(var(--i)*90ms + 1s) ease-in-out infinite alternate;animation-delay:calc(var(--i)*60ms + .12s),calc(var(--i)*90ms + 1s)}
+@keyframes chin{from{transform:translateY(-140px) scale(3.2) rotate(var(--r,20deg));opacity:0;filter:blur(12px)}60%{filter:blur(0)}}
+@keyframes chbob{to{translate:0 -5px;rotate:-2deg}}
+
+/* shock rings + impact frame */
+.shock{position:fixed;width:24px;height:24px;margin:-12px 0 0 -12px;border:5px solid var(--c,#ffc533);border-radius:50%;z-index:140;pointer-events:none;animation:shock .75s cubic-bezier(.1,.7,.3,1) forwards}
+@keyframes shock{to{transform:scale(34);opacity:0;border-width:1px}}
+.imp{position:fixed;inset:0;background:#fff;mix-blend-mode:difference;z-index:139;pointer-events:none;animation:imp .2s linear forwards}
+@keyframes imp{0%{opacity:1}100%{opacity:0}}
+
+/* shutter page transition (replaces the slash) */
+.shut{position:fixed;inset:0;z-index:150;pointer-events:none;display:flex}
+.shut i{flex:1;background:#0a0612;border-right:3px solid var(--gold);box-shadow:inset -8px 0 0 var(--violet);transform:scaleY(0);transform-origin:top;animation:shut .62s cubic-bezier(.7,0,.3,1) forwards;animation-delay:calc(var(--i)*38ms)}
+@keyframes shut{0%{transform:scaleY(0);transform-origin:top}46%{transform:scaleY(1);transform-origin:top}54%{transform:scaleY(1);transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+
+/* intro: dolly zoom + glitch pulses */
+#intro .core{animation:dolly 9s .4s ease-out forwards,igl 3.4s 2.8s steps(1) infinite}
+@keyframes dolly{from{scale:.94}to{scale:1.1}}
+@keyframes igl{0%,90%,100%{filter:none;translate:0}92%{filter:drop-shadow(-6px 0 0 #7c3aed) drop-shadow(6px 0 0 #ffc533);translate:4px 0}95%{filter:drop-shadow(6px 0 0 #35e8a0) drop-shadow(-6px 0 0 #7c3aed);translate:-5px 2px}}
+
+/* heartbeat on the main button, hot border on the clue */
+.btn.scan{animation:hb 1.5s ease-in-out infinite}
+@keyframes hb{0%,100%{scale:1}12%{scale:1.035}24%{scale:1}36%{scale:1.025}}
+.parch{animation-name:rise,inkglow;animation-duration:.5s,3s;animation-iteration-count:1,infinite;animation-delay:0s,1.2s;animation-fill-mode:both,none}
+@keyframes inkglow{50%{box-shadow:0 0 0 3px rgba(124,58,237,.0),8px 8px 0 var(--violet),0 0 28px rgba(255,197,51,.35)}}
+.gauge i.now{box-shadow:0 0 0 0 rgba(255,197,51,.8);animation:blink 1s steps(2) infinite,nowp 1.3s ease-out infinite}
+@keyframes nowp{to{box-shadow:0 0 0 12px rgba(255,197,51,0)}}
+
+/* notices jolt in */
+.notice{animation:rise .5s both,jolt .09s linear .5s 4}
+
+@media (prefers-reduced-motion:reduce){#rain,.shut,.shock,.imp{display:none}.sfx .ch,#intro .core,.btn.scan,.parch,.gauge i.now,.notice{animation:none!important}}
+
+.shatter{position:fixed;inset:0;width:100vw;height:100vh;z-index:160;pointer-events:none}
+@media (prefers-reduced-motion:reduce){.shatter{display:none}}
