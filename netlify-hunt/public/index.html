@@ -75,7 +75,7 @@ function slam(text, sub, tone = 'up', ms = 1800) {
     const o = document.createElement('div'); o.className = 'ov ' + tone;
     o.innerHTML = `<div class="speed"></div><div class="burst" style="clip-path:${burstClip(22)}"></div><div class="burst in" style="clip-path:${burstClip(16, .7)}"></div>
       <div class="sfx">${text}</div>${sub ? `<div class="ovsub">${sub}</div>` : ''}<div class="ovtap">TAP TO CONTINUE</div>`;
-    document.body.appendChild(o); fitSfx(o); sparks(innerWidth / 2, innerHeight / 2, tone === 'win' ? 140 : 90, tone, 1.6); if (tone === 'warn') quake(); snd(tone === 'warn' ? 'warn' : tone === 'ally' ? 'ally' : tone === 'win' ? 'win' : 'up');
+    document.body.appendChild(o); fitSfx(o); shock(innerWidth / 2, innerHeight / 2, tone); if (tone !== 'ally') impact(); sparks(innerWidth / 2, innerHeight / 2, tone === 'win' ? 140 : 90, tone, 1.6); if (tone === 'warn') quake(); snd(tone === 'warn' ? 'warn' : tone === 'ally' ? 'ally' : tone === 'win' ? 'win' : 'up');
     buzz(tone === 'warn' ? [200, 60, 200, 60, 300] : tone === 'win' ? [100, 50, 100, 50, 300] : [60, 40, 140]);
     const done = () => { if (!o.isConnected || o.classList.contains('bye')) return; o.classList.add('bye'); setTimeout(() => { o.remove(); res(); }, 250); };
     o.addEventListener('click', done); setTimeout(done, ms);
@@ -89,7 +89,7 @@ document.addEventListener('pointerdown', e => {
   const t = document.createElement('div'); t.className = 'tapfx'; t.style.cssText = `left:${e.clientX}px;top:${e.clientY}px;clip-path:${TAPCLIP}`;
   document.body.appendChild(t); setTimeout(() => t.remove(), 450);
 });
-const slashT = () => { const s = document.createElement('div'); s.className = 'trs'; document.body.appendChild(s); setTimeout(() => s.remove(), 520); };
+const slashT = () => { const s = document.createElement('div'); s.className = 'shut'; s.innerHTML = Array.from({ length: 7 }, (_, i) => `<i style="--i:${i}"></i>`).join(''); document.body.appendChild(s); setTimeout(() => s.remove(), 900); };
 
 /* sigil badge from team name */
 function sigil(name, size = '') {
@@ -121,14 +121,16 @@ function intro(done) {
     <div class="half a"></div><div class="half b"></div><div class="cutline"></div>
     <div class="slash"></div>
     <div class="pw"><b id="pwn">POWER 0000</b><div><i id="pwb"></i></div></div>`;
-  document.body.appendChild(el);
+  document.body.appendChild(el); const rn = document.getElementById('rain'); if (rn) rn.style.zIndex = 101;
   { let v = 0; const n = document.getElementById('pwn'), bar = document.getElementById('pwb'); const iv = setInterval(() => { v = Math.min(9001, v + 180 + Math.random() * 520); if (!n || !n.isConnected) return clearInterval(iv); n.textContent = v >= 9001 ? "POWER OVER 9000!" : "POWER " + String(Math.floor(v)).padStart(4, "0"); bar.style.width = Math.min(100, v / 90) + "%"; if (v >= 9001) { clearInterval(iv); sparks(innerWidth / 2, innerHeight * .45, 120, "win", 1.8); quake(); } }, 90); }
   snd('hit'); setTimeout(() => { snd('up'); buzz([30, 20, 120]); sparks(innerWidth / 2, innerHeight / 2, 80, 'up', 1.4); quake(); }, 1150);
   let gone = false;
-  const enter = () => {
+  const enter = e => {
     if (gone) return; gone = true;
     try { sessionStorage.setItem('hkIntro', '1'); } catch {}
-    snd('ally'); buzz([40, 30, 90]); el.classList.add('out'); setTimeout(done, 280); setTimeout(() => el.remove(), 900);
+    snd('ally'); buzz([40, 30, 90]);
+    if (RM) { el.classList.add('out'); setTimeout(done, 280); setTimeout(() => { el.remove(); if (rn) rn.style.zIndex = ''; }, 900); return; }
+    shatter(e?.clientX ?? innerWidth / 2, e?.clientY ?? innerHeight / 2, 'intro'); el.remove(); if (rn) rn.style.zIndex = ''; done();
   };
   el.addEventListener('click', enter);
 }
@@ -182,7 +184,7 @@ async function route() {
   homeView();
 }
 function fail(e) { $app.innerHTML = topbar() + `<div class="card hot center">${stage('OFFLINE!', { sm: 1, compact: 1 })}<p class="muted">${esc(e.message)}</p><button class="btn" onclick="route()">Try again</button></div>`; }
-function go(path) { slashT(); setTimeout(() => { history.pushState({}, '', path); route(); }, 180); }
+function go(path) { slashT(); setTimeout(() => { history.pushState({}, '', path); route(); }, 300); }
 window.addEventListener('popstate', route);
 
 /* ---------- login ---------- */
@@ -269,7 +271,7 @@ function homeView() {
   if (unseen.length) {
     api('/api/events/seen', { method: 'POST' }).catch(() => {});
     const hitEv = unseen.find(e => e.type === 'sabotage'), allyEv = unseen.find(e => e.type === 'assist');
-    if (hitEv) slam('SABOTAGED!', 'ANOTHER TEAM JAMMED ONE OF YOUR QRs', 'warn', 2200);
+    if (hitEv) { shatter(innerWidth / 2, innerHeight * .4, 'warn'); slam('SABOTAGED!', 'ANOTHER TEAM JAMMED ONE OF YOUR QRs', 'warn', 2200); }
     else if (allyEv) slam('ALLY SIGNAL', 'A TEAM SENT YOU A LOCATION', 'ally', 2200);
   }
   poll = setInterval(async () => {
@@ -295,6 +297,7 @@ async function scanView(code) {
     const fin = r.status === 'finished', rep = r.status === 'replay';
     $app.innerHTML = head + `${stage(fin ? 'VICTORY!' : rep ? 'REVISITED' : 'FOUND IT!', { shake: !rep, sm: rep, kicker: `<b class="${fin ? 'ok' : ''}">${rep ? 'CLUE' : 'STEP'} ${r.step}/${r.total}</b> &nbsp;${esc(r.station)}` })}
       <div class="parch rise" style="animation-delay:.6s"><div class="eyebrow">${fin ? 'Final message' : 'Your next clue'}</div>${esc(r.clue)}</div>${back}`;
+    if (fin) setTimeout(() => shatter(innerWidth / 2, innerHeight / 2, 'win'), 900);
     if (!rep) { flash(); confetti(); sparks(innerWidth / 2, innerHeight * .3, 110, fin ? 'win' : 'up', 1.5); slam(fin ? 'VICTORY!' : 'LEVEL UP!', fin ? 'ALL QRs FOUND — YOU WIN!' : `STEP ${r.step} OF ${r.total} CLEARED`, fin ? 'win' : 'up', fin ? 2600 : 1500); }
     return;
   }
@@ -405,6 +408,7 @@ addEventListener('deviceorientation', e => { if (e.gamma == null) return; const 
 
 /* shrink big sound-effect words until they fit their panel */
 function fitSfx(root = document) { root.querySelectorAll('.sfx:not([data-fit])').forEach(el => { const box = el.closest('.stage,.ov'); if (!box) return; el.dataset.fit = 1;
+  if (!RM && !el.children.length) { const t = el.textContent; el.textContent = ''; [...t].forEach((c, i) => { const sp = document.createElement('span'); sp.className = 'ch'; sp.style.setProperty('--i', i); sp.style.setProperty('--r', (i % 2 ? 1 : -1) * (14 + i * 3) + 'deg'); sp.textContent = c === ' ' ? '\u00a0' : c; el.appendChild(sp); }); }
   let fs = parseFloat(getComputedStyle(el).fontSize); const lim = box.clientWidth * .9; let n = 0; while (el.scrollWidth > lim && fs > 26 && n++ < 40) { fs -= 3; el.style.fontSize = fs + 'px'; } }); }
 /* decorate whatever the app just rendered (idempotent) */
 const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } }), { threshold: .12 }) : null;
@@ -419,6 +423,54 @@ function decorate() {
   if (io && !RM) document.querySelectorAll('.wrap>*:not([data-rv])').forEach(el => { el.dataset.rv = 1; if (el.getBoundingClientRect().top > innerHeight * .92) { el.classList.add('rv'); io.observe(el); } });
 }
 new MutationObserver(() => requestAnimationFrame(decorate)).observe($app, { childList: true });
+
+
+/* ===== SIGNATURE MOVE: the screen SHATTERS like a broken manga panel ===== */
+function shatter(cx, cy, tone = 'intro') {
+  if (RM) return; const W = innerWidth, H = innerHeight, NS = 'http://www.w3.org/2000/svg';
+  const cols = Math.max(5, Math.round(W / 62)), rows = Math.max(7, Math.round(H / 62)), cw = W / cols, ch = H / rows;
+  const pal = { intro: ['#0a0612', '#160a30', '#1f0f45', '#0e0720'], win: ['#ffc533', '#fff', '#ffd966', '#35e8a0'], warn: ['#4b2d8f', '#7c3aed', '#0a0612', '#bda7f0'] }[tone] || ['#0a0612'];
+  const edge = tone === 'win' ? '#000' : '#ffc533';
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'shatter'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', W); svg.setAttribute('height', H);
+  const V = []; for (let r = 0; r <= rows; r++) { V[r] = []; for (let c = 0; c <= cols; c++) V[r][c] = [c * cw + (c > 0 && c < cols ? (Math.random() - .5) * cw * .7 : 0), r * ch + (r > 0 && r < rows ? (Math.random() - .5) * ch * .7 : 0)]; }
+  const tris = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const a = V[r][c], b = V[r][c + 1], d = V[r + 1][c], e = V[r + 1][c + 1];
+    tris.push(Math.random() < .5 ? [a, b, d] : [a, b, e]); tris.push(Math.random() < .5 ? [b, e, d] : [a, e, d]); }
+  const maxD = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy)); const polys = [];
+  for (const t of tris) { const p = document.createElementNS(NS, 'polygon'); p.setAttribute('points', t.map(q => q.join(',')).join(' '));
+    p.setAttribute('fill', pal[Math.floor(Math.random() * pal.length)]); p.setAttribute('stroke', edge); p.setAttribute('stroke-width', '1.4'); p.setAttribute('stroke-linejoin', 'round'); svg.appendChild(p);
+    const mx = (t[0][0] + t[1][0] + t[2][0]) / 3, my = (t[0][1] + t[1][1] + t[2][1]) / 3; polys.push([p, mx, my]); }
+  document.body.appendChild(svg); impact(); quake(); sparks(cx, cy, 120, tone === 'warn' ? 'warn' : 'win', 1.8); shock(cx, cy, tone === 'warn' ? 'warn' : 'up');
+  let n = 0;
+  for (const [p, mx, my] of polys) { const dx = mx - cx, dy = my - cy, dist = Math.hypot(dx, dy) || 1, k = 1 - dist / maxD;
+    const push = 260 + Math.random() * 520 * (.4 + k), ang = Math.atan2(dy, dx) + (Math.random() - .5) * .9, tx = Math.cos(ang) * push, ty = Math.sin(ang) * push + 300 + Math.random() * 400, rot = (Math.random() - .5) * 720, delay = 150 + (dist / maxD) * 380;
+    const an = p.animate([{ transform: 'translate(0,0) rotate(0deg) scale(1)', opacity: 1 }, { transform: `translate(${tx * .35}px,${ty * .1}px) rotate(${rot * .3}deg) scale(1.04)`, opacity: 1, offset: .35 }, { transform: `translate(${tx}px,${ty}px) rotate(${rot}deg) scale(.4)`, opacity: 0 }],
+      { duration: 1000 + Math.random() * 400, delay, easing: 'cubic-bezier(.5,0,.9,.5)', fill: 'both' });
+    p.style.transformBox = 'fill-box'; p.style.transformOrigin = 'center'; an.onfinish = () => { if (++n >= polys.length) svg.remove(); }; }
+  setTimeout(() => svg.remove(), 2400);
+}
+
+/* ================= V5: EVEN CRAZIER ================= */
+function shock(x, y, tone = 'up') { if (RM) return; const col = { up: '#ffc533', win: '#ffc533', warn: '#7c3aed', ally: '#35e8a0', tap: '#bda7f0' }[tone] || '#ffc533';
+  [0, 110, 230].forEach((d, i) => setTimeout(() => { const r = document.createElement('div'); r.className = 'shock'; r.style.cssText = `left:${x}px;top:${y}px;--c:${i === 1 ? '#fff' : col}`; document.body.appendChild(r); setTimeout(() => r.remove(), 900); }, d)); }
+function impact() { if (RM) return; const f = document.createElement('div'); f.className = 'imp'; document.body.appendChild(f); setTimeout(() => f.remove(), 260); }
+document.addEventListener('pointerdown', e => { if (!e.target.closest('#scanner')) shock(e.clientX, e.clientY, 'tap'); });
+let lastTrail = 0;
+document.addEventListener('pointermove', e => { if (e.pointerType !== 'mouse' || RM) return; const t = performance.now(); if (t - lastTrail < 45) return; lastTrail = t; sparks(e.clientX, e.clientY, 2, 'tap', .35); });
+addEventListener('scroll', () => document.documentElement.style.setProperty('--sy', Math.min(3, scrollY / innerHeight).toFixed(3)), { passive: true });
+/* falling katakana rain behind everything */
+(function () {
+  if (RM) return; const c = document.createElement('canvas'); c.id = 'rain'; document.body.prepend(c); const x = c.getContext('2d');
+  const G = 'ゴドバンタカラ宝探シ財宝鍵謎闇光刃影'; let W, H, cols = [], last = 0;
+  const size = () => { W = c.width = innerWidth; H = c.height = innerHeight; cols = Array.from({ length: Math.ceil(W / 38) }, (_, i) => ({ x: i * 38 + 12, y: -Math.random() * H, v: 1.2 + Math.random() * 2.6, s: Array.from({ length: 9 }, () => G[Math.floor(Math.random() * G.length)]) })); };
+  size(); addEventListener('resize', size);
+  const draw = t => { requestAnimationFrame(draw); if (document.hidden || t - last < 40) return; last = t; x.clearRect(0, 0, W, H); x.font = "900 20px 'Noto Serif JP',serif"; x.textAlign = 'center';
+    for (const k of cols) { k.y += k.v * 3; if (k.y - 9 * 24 > H) { k.y = -20; k.v = 1.2 + Math.random() * 2.6; }
+      if (Math.random() < .08) k.s[Math.floor(Math.random() * 9)] = G[Math.floor(Math.random() * G.length)];
+      for (let i = 0; i < 9; i++) { x.globalAlpha = i ? (1 - i / 9) * .2 : .5; x.fillStyle = i ? '#7c3aed' : '#ffc533'; x.fillText(k.s[i], k.x, k.y - i * 24); } }
+    x.globalAlpha = 1; };
+  requestAnimationFrame(draw);
+})();
 
 route();
 </script>
