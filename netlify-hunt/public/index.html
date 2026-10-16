@@ -75,7 +75,7 @@ function slam(text, sub, tone = 'up', ms = 1800) {
     const o = document.createElement('div'); o.className = 'ov ' + tone;
     o.innerHTML = `<div class="speed"></div><div class="burst" style="clip-path:${burstClip(22)}"></div><div class="burst in" style="clip-path:${burstClip(16, .7)}"></div>
       <div class="sfx">${text}</div>${sub ? `<div class="ovsub">${sub}</div>` : ''}<div class="ovtap">TAP TO CONTINUE</div>`;
-    document.body.appendChild(o); snd(tone === 'warn' ? 'warn' : tone === 'ally' ? 'ally' : tone === 'win' ? 'win' : 'up');
+    document.body.appendChild(o); fitSfx(o); sparks(innerWidth / 2, innerHeight / 2, tone === 'win' ? 140 : 90, tone, 1.6); if (tone === 'warn') quake(); snd(tone === 'warn' ? 'warn' : tone === 'ally' ? 'ally' : tone === 'win' ? 'win' : 'up');
     buzz(tone === 'warn' ? [200, 60, 200, 60, 300] : tone === 'win' ? [100, 50, 100, 50, 300] : [60, 40, 140]);
     const done = () => { if (!o.isConnected || o.classList.contains('bye')) return; o.classList.add('bye'); setTimeout(() => { o.remove(); res(); }, 250); };
     o.addEventListener('click', done); setTimeout(done, ms);
@@ -101,7 +101,7 @@ function sigil(name, size = '') {
 const TICK = 'HASMUKH KARKHANA ✦ TREASURE HUNT ✦ 宝探し ✦ FIND THE QR ✦ TRUST NO ONE ✦ ';
 const ticker = () => `<div class="ticker"><div>${TICK.repeat(6)}</div></div>`;
 const topbar = (right = '') => `${ticker()}<div class="top"><div class="brand"><div class="logo">HK</div><div>HASMUKH KARKHANA<small>TREASURE HUNT</small></div></div><div class="row tight" style="gap:8px"><span class="chip mute" id="mutechip" onclick="toggleMute()">${muted ? '♪✕' : '♪'}</span>${right}</div></div>`;
-const stage = (sfx, o = {}) => `<div class="stage ${o.shake ? 'shake' : ''}" ${o.compact ? 'style="min-height:240px"' : ''}><div class="speed"></div>
+const stage = (sfx, o = {}) => `<div class="stage ${o.shake ? 'shake' : ''} ${o.compact ? 'cpt' : ''}" ${o.compact ? 'style="min-height:240px"' : ''}><div class="speed"></div>
   <div class="burst" style="clip-path:${burstClip()}"></div><div class="burst in" style="clip-path:${burstClip(16, .7)}"></div>
   <div class="sfx ${o.sm ? 'sm' : ''} ${o.glitch ? 'glitch' : ''}">${sfx}</div>${o.kicker ? `<div class="kicker">${o.kicker}</div>` : ''}</div>`;
 
@@ -119,9 +119,11 @@ function intro(done) {
       <div class="sub">THE GREAT TREASURE HUNT</div><div class="tap">▶ TAP TO ENTER ◀</div></div>
     <div class="stk s1">ドン!!</div><div class="stk s2">ババーン</div>
     <div class="half a"></div><div class="half b"></div><div class="cutline"></div>
-    <div class="slash"></div>`;
+    <div class="slash"></div>
+    <div class="pw"><b id="pwn">POWER 0000</b><div><i id="pwb"></i></div></div>`;
   document.body.appendChild(el);
-  snd('hit'); setTimeout(() => { snd('up'); buzz([30, 20, 120]); }, 1150);
+  { let v = 0; const n = document.getElementById('pwn'), bar = document.getElementById('pwb'); const iv = setInterval(() => { v = Math.min(9001, v + 180 + Math.random() * 520); if (!n || !n.isConnected) return clearInterval(iv); n.textContent = v >= 9001 ? "POWER OVER 9000!" : "POWER " + String(Math.floor(v)).padStart(4, "0"); bar.style.width = Math.min(100, v / 90) + "%"; if (v >= 9001) { clearInterval(iv); sparks(innerWidth / 2, innerHeight * .45, 120, "win", 1.8); quake(); } }, 90); }
+  snd('hit'); setTimeout(() => { snd('up'); buzz([30, 20, 120]); sparks(innerWidth / 2, innerHeight / 2, 80, 'up', 1.4); quake(); }, 1150);
   let gone = false;
   const enter = () => {
     if (gone) return; gone = true;
@@ -206,7 +208,7 @@ async function logout() { await api('/api/logout', { method: 'POST' }).catch(() 
 /* ---------- home ---------- */
 function gauge(done, total, finished) {
   const dense = total > 16;
-  return `<div class="gauge ${dense ? 'dense' : ''}">${Array.from({ length: total }, (_, i) => `<i class="${i < done ? 'on' : (!finished && i === done ? 'now' : '')}"><b>${i + 1}</b></i>`).join('')}</div>`;
+  return `<div class="gauge ${dense ? 'dense' : ''}">${Array.from({ length: total }, (_, i) => `<i style="--i:${i}" class="${i < done ? 'on' : (!finished && i === done ? 'now' : '')}"><b>${i + 1}</b></i>`).join('')}</div>`;
 }
 function homeView() {
   const d = me;
@@ -293,7 +295,7 @@ async function scanView(code) {
     const fin = r.status === 'finished', rep = r.status === 'replay';
     $app.innerHTML = head + `${stage(fin ? 'VICTORY!' : rep ? 'REVISITED' : 'FOUND IT!', { shake: !rep, sm: rep, kicker: `<b class="${fin ? 'ok' : ''}">${rep ? 'CLUE' : 'STEP'} ${r.step}/${r.total}</b> &nbsp;${esc(r.station)}` })}
       <div class="parch rise" style="animation-delay:.6s"><div class="eyebrow">${fin ? 'Final message' : 'Your next clue'}</div>${esc(r.clue)}</div>${back}`;
-    if (!rep) { flash(); confetti(); slam(fin ? 'VICTORY!' : 'LEVEL UP!', fin ? 'ALL QRs FOUND — YOU WIN!' : `STEP ${r.step} OF ${r.total} CLEARED`, fin ? 'win' : 'up', fin ? 2600 : 1500); }
+    if (!rep) { flash(); confetti(); sparks(innerWidth / 2, innerHeight * .3, 110, fin ? 'win' : 'up', 1.5); slam(fin ? 'VICTORY!' : 'LEVEL UP!', fin ? 'ALL QRs FOUND — YOU WIN!' : `STEP ${r.step} OF ${r.total} CLEARED`, fin ? 'win' : 'up', fin ? 2600 : 1500); }
     return;
   }
 
@@ -306,6 +308,14 @@ async function scanView(code) {
     tick = setInterval(() => { const left = end - Date.now(); const el = document.getElementById('cd');
       if (left <= 0) { clear(); scanView(code); } else if (el) el.textContent = fmt(left); }, 500);
     return;
+  }
+
+  if (r.status === 'shared') {
+    const who = r.mates.map(esc).join(', ');
+    $app.innerHTML = head + `<div class="card hot center sync">${stage('SYNC POINT', { sm: 1, compact: 1, kicker: `SAME QR · SAME STEP AS ${who.toUpperCase()}` })}
+      <p class="muted" style="margin:6px 0 0">Your route and <b>${who}</b>’s route both reach this QR at <b>step ${r.step}</b>. Nothing to do here yet. It opens for you when you get to step ${r.step}.</p></div>
+      ${r.clue ? `<div class="parch rise"><div class="eyebrow">Your current clue</div>${esc(r.clue)}</div>` : ''}${back}`;
+    snd('ally'); return;
   }
 
   // foreign / not yet: versus screen
@@ -351,6 +361,64 @@ async function scanView(code) {
   };
   refresh(); tick = setInterval(refresh, 1000);
 }
+
+/* ================= V4 FX ENGINE ================= */
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const quake = () => { if (RM) return; $app.classList.remove('quake'); void $app.offsetWidth; $app.classList.add('quake'); setTimeout(() => $app.classList.remove('quake'), 520); };
+let cv = null, cx = null, parts = [], raf = 0;
+const PAL = { up: ['#ffc533', '#fff', '#7c3aed', '#bda7f0'], win: ['#ffc533', '#fff', '#35e8a0', '#7c3aed', '#ffd966'], warn: ['#7c3aed', '#bda7f0', '#fff', '#4b2d8f'], ally: ['#35e8a0', '#fff', '#bda7f0'], tap: ['#ffc533', '#fff', '#bda7f0'] };
+function sparks(x, y, n = 20, tone = 'tap', power = 1) {
+  if (RM) return;
+  if (!cv) { cv = document.createElement('canvas'); cv.id = 'fxc'; document.body.appendChild(cv); cx = cv.getContext('2d'); }
+  const dpr = Math.min(2, devicePixelRatio || 1); if (cv.width !== innerWidth * dpr) { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; }
+  const pal = PAL[tone] || PAL.tap;
+  for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, v = (2 + Math.random() * 9) * power;
+    parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 2 * power, life: 1, dec: .012 + Math.random() * .02, len: 6 + Math.random() * 16, w: 1.5 + Math.random() * 3, c: pal[i % pal.length], g: .18 }); }
+  if (parts.length > 700) parts.splice(0, parts.length - 700);
+  if (!raf) raf = requestAnimationFrame(loop);
+}
+function loop() {
+  const dpr = Math.min(2, devicePixelRatio || 1); cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, innerWidth, innerHeight); cx.lineCap = 'round';
+  parts = parts.filter(p => p.life > 0);
+  for (const p of parts) { p.vy += p.g; p.vx *= .985; p.x += p.vx; p.y += p.vy; p.life -= p.dec;
+    cx.globalAlpha = Math.max(0, p.life); cx.strokeStyle = p.c; cx.lineWidth = p.w; const m = Math.hypot(p.vx, p.vy) || 1;
+    cx.beginPath(); cx.moveTo(p.x, p.y); cx.lineTo(p.x - p.vx / m * p.len * p.life, p.y - p.vy / m * p.len * p.life); cx.stroke(); }
+  raf = parts.length ? requestAnimationFrame(loop) : 0; if (!raf) cx.clearRect(0, 0, innerWidth, innerHeight);
+}
+document.addEventListener('pointerdown', e => {
+  if (e.target.closest('#scanner,#intro')) return; sparks(e.clientX, e.clientY, 12, 'tap', .7);
+  const b = e.target.closest('.btn'); if (b && !RM) { const r = b.getBoundingClientRect(), s = document.createElement('span'); s.className = 'rip'; s.style.left = e.clientX - r.left + 'px'; s.style.top = e.clientY - r.top + 'px'; b.appendChild(s); setTimeout(() => s.remove(), 650); }
+});
+/* spotlight + parallax follow the pointer / tilt of the phone */
+let mt = 0;
+document.addEventListener('pointermove', e => {
+  if (!mt) mt = requestAnimationFrame(() => { mt = 0; const st = document.documentElement.style;
+    st.setProperty('--mx', e.clientX + 'px'); st.setProperty('--my', e.clientY + 'px'); st.setProperty('--px', (e.clientX / innerWidth - .5).toFixed(3)); st.setProperty('--py', (e.clientY / innerHeight - .5).toFixed(3)); });
+  if (RM) return;
+  const el = e.target.closest?.('.player,.vs,.parch');
+  document.querySelectorAll('[data-tilt].on').forEach(o => { if (o !== el) { o.classList.remove('on'); o.style.rotate = ''; } });
+  if (!el) return; const r = el.getBoundingClientRect(), dx = (e.clientX - r.left) / r.width - .5, dy = (e.clientY - r.top) / r.height - .5;
+  el.setAttribute('data-tilt', ''); el.classList.add('on'); el.style.rotate = `${(-dy).toFixed(3)} ${dx.toFixed(3)} 0 ${(Math.hypot(dx, dy) * 7).toFixed(2)}deg`;
+});
+document.addEventListener('pointerup', () => document.querySelectorAll('[data-tilt].on').forEach(o => { o.classList.remove('on'); o.style.rotate = ''; }));
+addEventListener('deviceorientation', e => { if (e.gamma == null) return; const st = document.documentElement.style; st.setProperty('--px', Math.max(-.5, Math.min(.5, e.gamma / 60)).toFixed(3)); st.setProperty('--py', Math.max(-.5, Math.min(.5, (e.beta - 40) / 80)).toFixed(3)); }, { passive: true });
+
+/* shrink big sound-effect words until they fit their panel */
+function fitSfx(root = document) { root.querySelectorAll('.sfx:not([data-fit])').forEach(el => { const box = el.closest('.stage,.ov'); if (!box) return; el.dataset.fit = 1;
+  let fs = parseFloat(getComputedStyle(el).fontSize); const lim = box.clientWidth * .9; let n = 0; while (el.scrollWidth > lim && fs > 26 && n++ < 40) { fs -= 3; el.style.fontSize = fs + 'px'; } }); }
+/* decorate whatever the app just rendered (idempotent) */
+const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } }), { threshold: .12 }) : null;
+function decorate() {
+  fitSfx();
+  document.querySelectorAll('.stat b:not([data-n])').forEach(b => { b.dataset.n = 1; if (RM) return;
+    const m = b.textContent.match(/^(\d+)(\/\d+)?$/); if (!m) return; const to = +m[1], suf = m[2] || ''; if (!to) return; const t0 = performance.now() + 450;
+    b.textContent = '0' + suf; const step = t => { const k = Math.max(0, Math.min(1, (t - t0) / 800)); b.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))) + suf; if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); });
+  document.querySelectorAll('.parch:not([data-w])').forEach(p => { p.dataset.w = 1; if (RM) return;
+    const tn = [...p.childNodes].find(n => n.nodeType === 3 && n.textContent.trim()); if (!tn) return; const f = document.createDocumentFragment(); let i = 0;
+    tn.textContent.split(/(\s+)/).forEach(w => { if (!w.trim()) { f.appendChild(document.createTextNode(w)); return; } const s = document.createElement('span'); s.className = 'w'; s.style.setProperty('--d', i++); s.textContent = w; f.appendChild(s); }); tn.replaceWith(f); });
+  if (io && !RM) document.querySelectorAll('.wrap>*:not([data-rv])').forEach(el => { el.dataset.rv = 1; if (el.getBoundingClientRect().top > innerHeight * .92) { el.classList.add('rv'); io.observe(el); } });
+}
+new MutationObserver(() => requestAnimationFrame(decorate)).observe($app, { childList: true });
 
 route();
 </script>
