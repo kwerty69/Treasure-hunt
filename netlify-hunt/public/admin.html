@@ -218,15 +218,15 @@ function routeMap() {
     ${tm.length && st.length ? `<div class="mxwrap"><table class="mx"><tr><th class="tn">Team</th>${st.map(s => `<th>${esc(s.name)}</th>`).join('')}</tr>
       ${tm.map(t => `<tr><td class="tn">${esc(t.name)}</td>${st.map(s => cell(t, s)).join('')}</tr>`).join('')}</table></div>
       <div class="legend"><span><i style="background:var(--gold)"></i>TO DO</span><span><i style="background:var(--green)"></i>DONE</span><span><i style="outline:2px solid #fff"></i>CURRENT TARGET</span></div>
-      <p class="hint">${clash ? `${clash} spot${clash > 1 ? 's' : ''} where two teams are at the same QR on the same step. That works fine, but crowds can form.` : 'No two teams are at the same QR on the same step. Nice and spread out.'}</p>` : '<p class="muted">Add stations and teams first.</p>'}</div>
+      <p class="hint">${clash ? `${clash} spot${clash > 1 ? 's' : ''} where two teams are at the same QR on the same step. That’s fine: those teams just get the normal clue there, with no “too early” or “intruder” message.` : 'No two teams are at the same QR on the same step. Nice and spread out.'}</p>` : '<p class="muted">Add stations and teams first.</p>'}</div>
     <div class="card hot"><h3>Auto-generate routes</h3>
-      <p class="hint" style="margin-top:0">Gives every team its own order of QRs, rotated so teams spread out. Clues are built from each station’s riddle. This replaces all current routes and <b>resets all progress</b>, so use it before the hunt starts.</p>
-      <label>QRs per team (blank = all ${st.length})</label><input id="per" type="number" min="1" max="${st.length || 1}" placeholder="${st.length}">
+      <p class="hint" style="margin-top:0">Gives every team its own route of <b>7 QRs</b> picked from all stations, as different from every other team as the maths allows: no two teams on the same QR at the same step, as few shared QRs as possible, and every QR used evenly. Clues come from each station’s riddle. This replaces all current routes and <b>resets all progress</b>, so use it before the hunt starts.</p>
+      <label>QRs per team</label><input id="per" type="number" min="1" max="${st.length || 1}" value="${Math.min(7, st.length || 1)}">
       <button class="btn red" style="margin-top:12px" onclick="autoRoutes()">Generate routes for all teams</button></div>`;
 }
 async function autoRoutes() {
   if (!confirm('Replace EVERY team’s route and reset all progress?')) return;
-  try { const r = await api('/api/admin/autoroute', 'POST', { perTeam: document.getElementById('per').value }); draft = null; await load(); toast(`Done: ${r.teams} routes of ${r.steps} steps`); } catch (e) { toast(e.message); }
+  try { const r = await api('/api/admin/autoroute', 'POST', { perTeam: document.getElementById('per').value || 7 }); draft = null; await load(); toast(`Done: ${r.teams} routes of ${r.steps} QRs · ${r.samePosition} same-step overlaps`); } catch (e) { toast(e.message); }
 }
 
 /* ---- Activity ---- */
