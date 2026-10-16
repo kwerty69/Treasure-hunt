@@ -133,6 +133,11 @@ export default async (req) => {
         if (lock) return json({ ...base, status: "locked", until: lock.until, now: now() });
         return json({ ...base, status: "replay", clue: clueAt(cfg, me, doneIdx), step: doneIdx + 1, total });
       }
+      if (ahead >= 0) {
+        // Shared slot: another team has this very QR at the very same step number -> nobody is early or an intruder. No drama, no Assist/Sabotage.
+        const mates = cfg.teams.filter(t => t.id !== me.id && t.route[ahead]?.station_id === st.id).map(t => t.name);
+        if (mates.length) return json({ ...base, status: "shared", step: ahead + 1, total, mates, clue: p0 === 0 ? startClueOf(cfg, me) : clueAt(cfg, me, p0 - 1) });
+      }
       const targets = await targetsFor(cfg, st, me);
       const cool = (await get(`cool/${me.id}`)) || 0;
       return json({ ...base, status: ahead >= 0 ? "notyet" : "foreign", targets, sabotageMinutes: S.sabotageMinutes,
@@ -266,14 +271,40 @@ async function admin(req, p, m, url) {
     }
   }
   if (p === "/admin/autoroute" && m === "POST") {
-    // Fair independent routes: each team gets its own order. Rotating one shuffled base list means no two teams stand at the same QR on the same step (while teams <= stations).
-    const ids = cfg.stations.map(x => x.id); if (!ids.length || !cfg.teams.length) return json({ error: "Add stations and teams first." }, 400);
-    const per = Math.max(1, Math.min(ids.length, +b.perTeam || ids.length));
-    const base = ids.map(v => [Math.random(), v]).sort((a, c) => a[0] - c[0]).map(x => x[1]);
-    const shift = Math.max(1, Math.floor(ids.length / cfg.teams.length));
-    cfg.teams.forEach((t, k) => { const off = (k * shift) % ids.length; t.route = Array.from({ length: per }, (_, i) => ({ station_id: base[(off + i) % ids.length], clue: "" })); t.start_clue = ""; });
+    // Independent routes of K QRs each (default 7). Many random restarts; the best layout is the one where teams
+    // (1) never stand at the same QR on the same step, (2) share as few QRs as possible, (3) share no QR pairs back-to-back, (4) use every QR evenly.
+    const ids = cfg.stations.map(x => x.id), T = cfg.teams.length;
+    if (!ids.length || !T) return json({ error: "Add stations and teams first." }, 400);
+    const K = Math.max(1, Math.min(ids.length, +b.perTeam || 7));
+    const shuf = a => { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
+    const build = () => {
+      const use = Object.fromEntries(ids.map(i => [i, 0])), routes = [], sets = [], posUse = [], pairs = new Set();
+      for (let t = 0; t < T; t++) {
+        // choose the K least-used QRs, preferring ones that overlap least with earlier teams' sets
+        const pool = shuf(ids).sort((x, y) => use[x] - use[y]);
+        const set = pool.slice(0, K); set.forEach(i => use[i]++);
+        // order: for each step pick the QR that fewest earlier teams already use at that step, never repeating a back-to-back pair
+        const left = set.slice(), order = [];
+        for (let i = 0; i < K; i++) {
+          const prev = order[i - 1];
+          const cand = shuf(left).map(q => ({ q, c: (posUse[i]?.[q] || 0) * 100 + (prev != null && (pairs.has(prev + ">" + q)) ? 10 : 0) + Math.random() }));
+          cand.sort((x, y) => x.c - y.c); const q = cand[0].q;
+          order.push(q); left.splice(left.indexOf(q), 1); (posUse[i] ||= {})[q] = (posUse[i][q] || 0) + 1;
+        }
+        order.forEach((q, i) => { if (i) pairs.add(order[i - 1] + ">" + q); });
+        routes.push(order); sets.push(new Set(set));
+      }
+      let same = 0, overlap = 0, adj = 0; const seenPair = new Set();
+      for (let i = 0; i < K; i++) { const c = {}; routes.forEach(r => { c[r[i]] = (c[r[i]] || 0) + 1; }); Object.values(c).forEach(n => { if (n > 1) same += n * (n - 1) / 2; }); }
+      for (let a = 0; a < T; a++) for (let c = a + 1; c < T; c++) { let o = 0; sets[a].forEach(q => { if (sets[c].has(q)) o++; }); overlap += o * o; }
+      routes.forEach(r => r.forEach((q, i) => { if (i) { const k = r[i - 1] + ">" + q; if (seenPair.has(k)) adj++; seenPair.add(k); } }));
+      const u = Object.values(use), spread = Math.max(...u) - Math.min(...u);
+      return { routes, same, overlap, adj, score: same * 1000 + overlap * 6 + adj * 20 + spread * 30 };
+    };
+    let best = null; for (let n = 0; n < 400; n++) { const r = build(); if (!best || r.score < best.score) best = r; if (best.score === 0) break; }
+    cfg.teams.forEach((t, k) => { t.route = best.routes[k].map(id => ({ station_id: id, clue: "" })); t.start_clue = ""; });
     await saveCfg(cfg); await delPrefix("prog/");
-    return json({ ok: true, teams: cfg.teams.length, steps: per });
+    return json({ ok: true, teams: T, steps: K, samePosition: best.same, shortOfStations: ids.length < 7 && !(+b.perTeam) });
   }
   if (p === "/admin/reset" && m === "POST") {
     await Promise.all(["prog/", "ev/", "lock/", "assist/", "cool/", "seen/", "log/", "stat/", "hit/"].map(delPrefix));
