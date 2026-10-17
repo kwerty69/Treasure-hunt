@@ -75,7 +75,7 @@ function slam(text, sub, tone = 'up', ms = 1800) {
     const o = document.createElement('div'); o.className = 'ov ' + tone;
     o.innerHTML = `<div class="speed"></div><div class="burst" style="clip-path:${burstClip(22)}"></div><div class="burst in" style="clip-path:${burstClip(16, .7)}"></div>
       <div class="sfx">${text}</div>${sub ? `<div class="ovsub">${sub}</div>` : ''}<div class="ovtap">TAP TO CONTINUE</div>`;
-    document.body.appendChild(o); fitSfx(o); shock(innerWidth / 2, innerHeight / 2, tone); if (tone !== 'ally') impact(); sparks(innerWidth / 2, innerHeight / 2, tone === 'win' ? 140 : 90, tone, 1.6); if (tone === 'warn') quake(); snd(tone === 'warn' ? 'warn' : tone === 'ally' ? 'ally' : tone === 'win' ? 'win' : 'up');
+    document.body.appendChild(o); fitSfx(o); shock(innerWidth / 2, innerHeight / 2, tone); if (tone !== 'ally') { impact(); storm(tone === 'win' ? 8 : 5); } if (tone === 'win') fireworks(); sparks(innerWidth / 2, innerHeight / 2, tone === 'win' ? 140 : 90, tone, 1.6); if (tone === 'warn') quake(); snd(tone === 'warn' ? 'warn' : tone === 'ally' ? 'ally' : tone === 'win' ? 'win' : 'up');
     buzz(tone === 'warn' ? [200, 60, 200, 60, 300] : tone === 'win' ? [100, 50, 100, 50, 300] : [60, 40, 140]);
     const done = () => { if (!o.isConnected || o.classList.contains('bye')) return; o.classList.add('bye'); setTimeout(() => { o.remove(); res(); }, 250); };
     o.addEventListener('click', done); setTimeout(done, ms);
@@ -380,13 +380,23 @@ function sparks(x, y, n = 20, tone = 'tap', power = 1) {
   if (parts.length > 700) parts.splice(0, parts.length - 700);
   if (!raf) raf = requestAnimationFrame(loop);
 }
+let bolts = [];
+function bolt(x1, y1, x2, y2, col = '#fff', glow = '#7c3aed') {
+  if (RM) return; if (!cv) sparks(x1, y1, 0); const pts = [[x1, y1]], n = 14;
+  for (let i = 1; i < n; i++) { const k = i / n; pts.push([x1 + (x2 - x1) * k + (Math.random() - .5) * 70 * Math.sin(k * Math.PI), y1 + (y2 - y1) * k + (Math.random() - .5) * 40]); } pts.push([x2, y2]);
+  bolts.push({ pts, life: 1, col, glow, w: 2 + Math.random() * 3 }); if (!raf) raf = requestAnimationFrame(loop);
+}
+function storm(n = 5) { for (let i = 0; i < n; i++) setTimeout(() => { const side = Math.random() < .5, x = Math.random() * innerWidth; bolt(x, -10, innerWidth / 2 + (Math.random() - .5) * 200, innerHeight * (.35 + Math.random() * .25), '#fff', side ? '#7c3aed' : '#ffc533'); }, i * 90); }
+function fireworks(ms = 3200) { if (RM) return; const t0 = Date.now(), iv = setInterval(() => { if (Date.now() - t0 > ms) return clearInterval(iv); const x = innerWidth * (.12 + Math.random() * .76), y = innerHeight * (.12 + Math.random() * .5); sparks(x, y, 55, 'win', 1.4); shock(x, y, Math.random() < .5 ? 'win' : 'up'); if (Math.random() < .5) bolt(x, -10, x, y, '#fff', '#ffc533'); }, 280); }
 function loop() {
-  const dpr = Math.min(2, devicePixelRatio || 1); cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, innerWidth, innerHeight); cx.lineCap = 'round';
+  const dpr = Math.min(2, devicePixelRatio || 1); cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, innerWidth, innerHeight); cx.lineCap = 'round'; cx.lineJoin = 'round';
+  bolts = bolts.filter(b => b.life > 0);
+  for (const b of bolts) { b.life -= .07; cx.globalAlpha = Math.max(0, b.life); cx.shadowColor = b.glow; cx.shadowBlur = 22; cx.strokeStyle = b.col; cx.lineWidth = b.w * b.life + .5; cx.beginPath(); b.pts.forEach((p, i) => i ? cx.lineTo(p[0], p[1]) : cx.moveTo(p[0], p[1])); cx.stroke(); } cx.shadowBlur = 0;
   parts = parts.filter(p => p.life > 0);
   for (const p of parts) { p.vy += p.g; p.vx *= .985; p.x += p.vx; p.y += p.vy; p.life -= p.dec;
     cx.globalAlpha = Math.max(0, p.life); cx.strokeStyle = p.c; cx.lineWidth = p.w; const m = Math.hypot(p.vx, p.vy) || 1;
     cx.beginPath(); cx.moveTo(p.x, p.y); cx.lineTo(p.x - p.vx / m * p.len * p.life, p.y - p.vy / m * p.len * p.life); cx.stroke(); }
-  raf = parts.length ? requestAnimationFrame(loop) : 0; if (!raf) cx.clearRect(0, 0, innerWidth, innerHeight);
+  raf = (parts.length || bolts.length) ? requestAnimationFrame(loop) : 0; if (!raf) cx.clearRect(0, 0, innerWidth, innerHeight);
 }
 document.addEventListener('pointerdown', e => {
   if (e.target.closest('#scanner,#intro')) return; sparks(e.clientX, e.clientY, 12, 'tap', .7);
@@ -401,7 +411,7 @@ document.addEventListener('pointermove', e => {
   const el = e.target.closest?.('.player,.vs,.parch');
   document.querySelectorAll('[data-tilt].on').forEach(o => { if (o !== el) { o.classList.remove('on'); o.style.rotate = ''; } });
   if (!el) return; const r = el.getBoundingClientRect(), dx = (e.clientX - r.left) / r.width - .5, dy = (e.clientY - r.top) / r.height - .5;
-  el.setAttribute('data-tilt', ''); el.classList.add('on'); el.style.rotate = `${(-dy).toFixed(3)} ${dx.toFixed(3)} 0 ${(Math.hypot(dx, dy) * 7).toFixed(2)}deg`;
+  el.setAttribute('data-tilt', ''); el.classList.add('on'); el.style.setProperty('--gx', (dx + .5) * 100 + '%'); el.style.setProperty('--gy', (dy + .5) * 100 + '%'); el.style.rotate = `${(-dy).toFixed(3)} ${dx.toFixed(3)} 0 ${(Math.hypot(dx, dy) * 7).toFixed(2)}deg`;
 });
 document.addEventListener('pointerup', () => document.querySelectorAll('[data-tilt].on').forEach(o => { o.classList.remove('on'); o.style.rotate = ''; }));
 addEventListener('deviceorientation', e => { if (e.gamma == null) return; const st = document.documentElement.style; st.setProperty('--px', Math.max(-.5, Math.min(.5, e.gamma / 60)).toFixed(3)); st.setProperty('--py', Math.max(-.5, Math.min(.5, (e.beta - 40) / 80)).toFixed(3)); }, { passive: true });
@@ -414,6 +424,7 @@ function fitSfx(root = document) { root.querySelectorAll('.sfx:not([data-fit])')
 const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } }), { threshold: .12 }) : null;
 function decorate() {
   fitSfx();
+  document.querySelectorAll('.player:not(:has(.glare))').forEach(p => { const g = document.createElement('i'); g.className = 'glare'; p.appendChild(g); });
   document.querySelectorAll('.stat b:not([data-n])').forEach(b => { b.dataset.n = 1; if (RM) return;
     const m = b.textContent.match(/^(\d+)(\/\d+)?$/); if (!m) return; const to = +m[1], suf = m[2] || ''; if (!to) return; const t0 = performance.now() + 450;
     b.textContent = '0' + suf; const step = t => { const k = Math.max(0, Math.min(1, (t - t0) / 800)); b.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))) + suf; if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); });
