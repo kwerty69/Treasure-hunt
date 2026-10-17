@@ -2,488 +2,387 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#07040d">
-<title>Hasmukh Karkhana — Treasure Hunt</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hasmukh Karkhana — Command</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bangers&family=Comic+Neue:wght@700&family=Inter:wght@400;600;700&family=Noto+Serif+JP:wght@900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bangers&family=Comic+Neue:wght@700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+.tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto}
+.tab{padding:10px 16px;border-radius:12px;background:var(--card);border:1px solid var(--line);cursor:pointer;font-weight:600;white-space:nowrap;color:var(--muted)}
+.tab.on{background:var(--gold);color:#000;border-color:var(--gold)}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.qr{background:#fff;border-radius:14px;padding:10px;width:150px;height:150px;margin:0 auto 10px}
+.qr svg{width:100%;height:100%;display:block}
+.stcard{text-align:center}
+.stcard code{display:block;font-size:12px;color:var(--muted);word-break:break-all;margin-top:4px}
+.two{display:grid;gap:14px;grid-template-columns:260px 1fr}
+@media(max-width:760px){.two{grid-template-columns:1fr}}
+.tlist .t{padding:12px 14px;border-radius:12px;cursor:pointer;border:1px solid transparent;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tlist .t.on{background:var(--card2);border-color:var(--gold)}
+.stepbox{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}
+.stepbox .head{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.stepbox select{flex:1}
+.x{background:none;border:0;color:var(--muted);cursor:pointer;font-size:18px;padding:4px 8px}
+.x:hover{color:var(--red)}
+#printSheet{display:none}
+.mxwrap{overflow-x:auto;margin-top:8px}
+table.mx{border-collapse:separate;border-spacing:4px;min-width:100%}
+table.mx th{font:400 12px var(--head);letter-spacing:.12em;text-transform:uppercase;color:var(--lav);padding:4px 6px;text-align:center;vertical-align:bottom}
+table.mx th.tn,table.mx td.tn{text-align:left;font:400 16px var(--head);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;padding:6px 10px}
+table.mx td{height:38px;min-width:46px;text-align:center;font:400 18px var(--display);background:rgba(255,255,255,.04);border:2px solid var(--line)}
+table.mx td.on{background:var(--gold);color:#000;border-color:var(--gold)}
+table.mx td.done{background:var(--green);color:#03170e;border-color:var(--green)}
+table.mx td.now{outline:3px solid #fff;outline-offset:1px}
+table.mx td.none{color:#555}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font:400 12px var(--head);letter-spacing:.14em;color:var(--lav);margin-top:10px}
+.legend i{display:inline-block;width:12px;height:12px;vertical-align:middle;margin-right:6px}
+.hint{font:600 13px/1.4 var(--hand);color:#cfc3f5;margin:4px 0 0}
+.ghost-ph::placeholder{color:#8d7fc0}
+@media print{
+  body>*:not(#printSheet){display:none!important}
+  body{background:#fff}
+  #printSheet{display:grid!important;grid-template-columns:repeat(2,1fr);gap:18px;color:#000}
+  #printSheet .p{border:2px dashed #999;border-radius:14px;padding:16px;text-align:center;break-inside:avoid;font-family:Inter,sans-serif}
+  #printSheet .p svg{width:230px;height:230px}
+  #printSheet h2{font-size:18px;margin:8px 0 0}
+  #printSheet small{color:#444}
+}
+
+/* ===== COMMAND CENTRE FX ===== */
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:90;background:repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px);mix-blend-mode:overlay}
+.beam{position:fixed;left:0;right:0;height:120px;top:-120px;z-index:89;pointer-events:none;background:linear-gradient(180deg,transparent,rgba(124,58,237,.18),rgba(255,197,51,.35),transparent);animation:beam 7s linear infinite}
+@keyframes beam{to{top:110vh}}
+.radar{width:44px;height:44px;border-radius:50%;border:2px solid var(--green);position:relative;flex:none;background:radial-gradient(circle,rgba(53,232,160,.18),transparent 70%),repeating-radial-gradient(circle,transparent 0 9px,rgba(53,232,160,.3) 9px 10px);overflow:hidden}
+.radar::before{content:"";position:absolute;inset:0;background:conic-gradient(from 0deg,rgba(53,232,160,.85),transparent 28%);animation:spin 2.2s linear infinite}
+.radar i{position:absolute;width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 6px var(--green);animation:blip 2.2s linear infinite}
+@keyframes blip{0%,40%{opacity:0}45%{opacity:1}100%{opacity:0}}
+.top{gap:14px}.top .brand{flex:1}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+.kpi{position:relative;padding:12px 12px 10px;border:2px solid var(--line);background:rgba(124,58,237,.1);transform:skew(-4deg);overflow:hidden}
+.fx .kpi{animation:kin .6s cubic-bezier(.2,1.4,.4,1) both;animation-delay:calc(var(--k)*80ms + .1s)}
+.kpi b{display:block;font:400 38px/1 var(--display);letter-spacing:.03em;color:var(--gold)}
+.kpi span{display:block;font:400 11px var(--head);letter-spacing:.24em;color:var(--lav);margin-top:4px}
+.kpi.g b{color:var(--green)}.kpi.w b{color:#fff}.kpi.r b{color:#ff7a9c}
+.kpi::after{content:"";position:absolute;left:0;bottom:0;height:3px;width:100%;background:currentColor;opacity:.5;transform-origin:left}
+.fx .kpi::after{animation:kbar 1.4s ease-out both}
+@keyframes kin{from{opacity:0;transform:skew(-4deg) translateY(30px) scale(.6) rotate(-6deg)}}
+@keyframes kbar{from{transform:scaleX(0)}}
+.fx .card{animation:unfold .65s cubic-bezier(.2,.9,.2,1) both}
+.fx .card:nth-child(2){animation-delay:.06s}.fx .card:nth-child(3){animation-delay:.12s}.fx .card:nth-child(4){animation-delay:.18s}
+@keyframes unfold{from{clip-path:inset(0 100% 0 0);opacity:.2;translate:-18px 0}to{clip-path:inset(0 0 0 0);opacity:1;translate:0 0}}
+.tabswap{animation:tswap .42s steps(1) both}
+@keyframes tswap{0%{filter:drop-shadow(-8px 0 0 #7c3aed) drop-shadow(8px 0 0 #ffc533);translate:6px 0}25%{filter:drop-shadow(6px 0 0 #35e8a0) drop-shadow(-6px 0 0 #7c3aed);translate:-5px 2px}50%{filter:drop-shadow(-3px 0 0 #ffc533);translate:2px -1px}100%{filter:none;translate:0}}
+.tab{transition:.15s}.tab:hover{translate:0 -3px;color:#fff;border-color:var(--gold)}.tab.on{animation:tabon .5s cubic-bezier(.2,1.6,.4,1)}
+@keyframes tabon{from{scale:.8;rotate:-4deg}}
+/* boot overlay */
+#boot{position:fixed;inset:0;z-index:300;background:#05030b;display:grid;place-items:center;overflow:hidden;cursor:pointer}
+#boot .grid{position:absolute;inset:-50%;background:linear-gradient(rgba(124,58,237,.35) 1px,transparent 1px) 0 0/46px 46px,linear-gradient(90deg,rgba(124,58,237,.35) 1px,transparent 1px) 0 0/46px 46px;transform:perspective(500px) rotateX(62deg) translateY(0);animation:gridmove 1.2s linear infinite;-webkit-mask-image:radial-gradient(circle at 50% 50%,#000,transparent 65%);mask-image:radial-gradient(circle at 50% 50%,#000,transparent 65%)}
+@keyframes gridmove{to{background-position:0 46px,46px 0}}
+#boot .rad{position:absolute;left:50%;top:50%;width:min(86vw,560px);aspect-ratio:1;translate:-50% -50%;border-radius:50%;border:2px solid rgba(53,232,160,.5);background:repeating-radial-gradient(circle,transparent 0 11%,rgba(53,232,160,.18) 11% 11.6%);overflow:hidden;opacity:.9}
+#boot .rad::before{content:"";position:absolute;inset:0;background:conic-gradient(from 0deg,rgba(53,232,160,.55),transparent 22%);animation:spin 2.4s linear infinite}
+#boot .term{position:relative;z-index:2;width:min(92vw,520px);font:400 clamp(13px,3.6vw,17px)/1.7 var(--head);letter-spacing:.14em;color:#9affd2;text-shadow:0 0 8px rgba(53,232,160,.6);text-transform:uppercase}
+#boot .term div{opacity:0;animation:tl .01s forwards;white-space:nowrap;overflow:hidden}
+#boot .term b{color:var(--gold);font-weight:400}
+#boot .title{position:relative;z-index:2;text-align:center;margin-bottom:18px;font:400 clamp(44px,13vw,86px)/.9 var(--display);color:#fff;-webkit-text-stroke:2px #000;paint-order:stroke fill;text-shadow:5px 5px 0 var(--violet);animation:slam .55s cubic-bezier(.2,1.5,.3,1) both}
+#boot .pb{position:relative;z-index:2;height:10px;margin-top:16px;border:2px solid #9affd2;transform:skew(-20deg);overflow:hidden}
+#boot .pb i{display:block;height:100%;width:0;background:repeating-linear-gradient(-45deg,#9affd2 0 6px,#05030b 6px 9px)}
+#boot .blind{position:absolute;left:0;right:0;background:#05030b;z-index:3;display:none;border-block:2px solid var(--gold)}
+#boot.open .blind{display:block;animation:blind .7s cubic-bezier(.7,0,.3,1) forwards;animation-delay:calc(var(--b)*45ms)}
+@keyframes blind{to{transform:scaleY(0)}}
+#boot.open .grid,#boot.open .rad,#boot.open .term,#boot.open .title,#boot.open .pb{opacity:0;transition:opacity .2s}
+@keyframes tl{to{opacity:1}}
+/* live alert feed */
+.alerts{position:fixed;top:12px;right:12px;z-index:120;display:grid;gap:8px;width:min(92vw,340px);pointer-events:none}
+.alert{padding:10px 14px;background:#0a0612;border:2px solid var(--gold);border-left-width:8px;font:400 15px/1.25 var(--head);letter-spacing:.06em;text-transform:uppercase;box-shadow:6px 6px 0 var(--violet);animation:alin .5s cubic-bezier(.2,1.5,.3,1) both,alout .4s 4.6s forwards}
+.alert.sab{border-color:#ff5d8f}.alert.ast{border-color:var(--green)}.alert.fin{border-color:#fff;background:#2a1a00}
+.alert small{display:block;color:var(--lav);letter-spacing:.2em;font-size:11px;margin-bottom:2px}
+@keyframes alin{from{transform:translateX(120%) skewX(-18deg);opacity:0}}
+@keyframes alout{to{transform:translateX(120%);opacity:0}}
+/* audit log */
+.af{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px}
+.alog{position:relative;padding:12px 0 12px 16px;border-top:1px solid var(--line)}
+.alog:first-child{border-top:0}
+.alog::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:4px;background:var(--c,var(--lav))}
+.alog .h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.alog .tg{font:400 12px var(--head);letter-spacing:.18em;padding:2px 8px;background:var(--c,var(--lav));color:#000;transform:skew(-9deg);text-transform:uppercase}
+.alog .tm{margin-left:auto;font:400 13px var(--head);letter-spacing:.08em;color:#fff;text-align:right}
+.alog .tm small{display:block;color:var(--lav);letter-spacing:.12em;font-size:11px}
+.alog .dt{margin-top:6px;font:600 15px/1.4 var(--hand)}
+.alog .meta{margin-top:4px;font:400 11px var(--head);letter-spacing:.14em;color:#8d7fc0;text-transform:uppercase}
+.alog.fresh{animation:fresh 1.6s ease-out both}
+@keyframes fresh{0%{background:rgba(255,197,51,.35);translate:-30px 0;opacity:0}20%{translate:0;opacity:1}100%{background:transparent}}
+.dayh{margin:14px 0 2px;font:400 13px var(--head);letter-spacing:.3em;color:var(--gold)}
+@media (prefers-reduced-motion:reduce){.beam,.radar::before,#boot .grid,.alert,.kpi,.fx .card,.tabswap,.alog.fresh{animation:none!important}#boot{display:none}}
+</style>
 </head>
 <body>
-<div class="amb" aria-hidden="true"><span>ゴゴゴ</span><span>宝探し</span><span>ドン</span></div>
-<div class="wrap" id="app"></div>
+<div class="wrap wide" id="app"></div>
+<div id="printSheet"></div>
 <script>
 const $app = document.getElementById('app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let me = null, poll = null, tick = null;
-let muted = false; try { muted = localStorage.getItem('hkMute') === '1'; } catch {}
+let lastTab = null, lastLogKey = null, S = null, tab = localStorage.getItem('tab') || 'overview', selTeam = null, draft = null, timer = null;
 
-/* ---------- api ---------- */
-async function api(path, opts = {}) {
-  const r = await fetch(path, { method: opts.method || 'GET', headers: { 'Content-Type': 'application/json' },
-    body: opts.body ? JSON.stringify(opts.body) : undefined, credentials: 'same-origin' });
+async function api(path, method = 'GET', body) {
+  const r = await fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json().catch(() => ({}));
-  if (r.status === 401 && j.error === 'login') { me = null; throw Object.assign(new Error('login'), { login: true }); }
-  if (!r.ok) throw Object.assign(new Error(j.error || 'Something went wrong'), { data: j });
+  if (r.status === 401 && j.error === 'admin') { S = null; throw Object.assign(new Error('admin'), { auth: true }); }
+  if (!r.ok) throw new Error(j.error || 'Error');
   return j;
 }
-
-/* ---------- fx helpers ---------- */
-function toast(msg) { const t = document.createElement('div'); t.className = 'toast rise'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3400); }
-function confetti() {
-  const c = document.createElement('div'); c.className = 'confetti';
-  for (let i = 0; i < 70; i++) { const p = document.createElement('i');
-    p.style.cssText = `left:${Math.random() * 100}%;height:${14 + Math.random() * 44}px;opacity:${.4 + Math.random() * .6};animation-duration:${.9 + Math.random() * 1.4}s;animation-delay:${Math.random() * .8}s`; c.appendChild(p); }
-  document.body.appendChild(c); setTimeout(() => c.remove(), 3800);
-}
-function flash() { const f = document.createElement('div'); f.className = 'flash'; document.body.appendChild(f); setTimeout(() => f.remove(), 700); }
-const buzz = p => { try { navigator.vibrate?.(p); } catch {} };
-function burstClip(n = 20, inner = .64) {
-  const pts = [];
-  for (let i = 0; i < n * 2; i++) { const a = i * Math.PI / n, r = i % 2 ? inner * 50 + Math.random() * 5 : 50 - Math.random() * 5;
-    pts.push(`${(50 + r * Math.cos(a)).toFixed(1)}% ${(50 + r * Math.sin(a)).toFixed(1)}%`); }
-  return `polygon(${pts.join(',')})`;
-}
-const fmt = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-const clear = () => { clearInterval(poll); clearInterval(tick); };
-const evText = e => (e.type === 'assist' ? '✚ ' : e.type === 'sabotage' ? '✕ ' : '') + String(e.message).replace(/^[\p{Extended_Pictographic}️\s]+/u, '');
-
-/* tiny synth sound effects (no files) */
-let AC = null;
-function snd(kind) {
-  if (muted) return;
-  const seqs = {
-    up: [[523, 0, .09], [659, .09, .09], [784, .18, .09], [1047, .27, .24]],
-    win: [[523, 0, .12], [659, .12, .12], [784, .24, .12], [1047, .36, .12], [784, .48, .1], [1047, .58, .1], [1319, .68, .45]],
-    warn: [[110, 0, .35, 'sawtooth'], [98, .13, .35, 'sawtooth'], [82, .26, .45, 'sawtooth']],
-    ally: [[660, 0, .1], [880, .1, .1], [1175, .2, .25]],
-    hit: [[200, 0, .1, 'square'], [140, .08, .16, 'square']],
-  }[kind] || [];
-  try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); const t = AC.currentTime;
-    for (const [f, d, l, w] of seqs) { const o = AC.createOscillator(), g = AC.createGain(); o.type = w || 'triangle'; o.frequency.value = f;
-      g.gain.setValueAtTime(.0001, t + d); g.gain.exponentialRampToValueAtTime(.11, t + d + .015); g.gain.exponentialRampToValueAtTime(.0001, t + d + l);
-      o.connect(g); g.connect(AC.destination); o.start(t + d); o.stop(t + d + l + .03); }
-  } catch {}
-}
-function toggleMute() { muted = !muted; try { localStorage.setItem('hkMute', muted ? '1' : '0'); } catch {} const c = document.getElementById('mutechip'); if (c) c.textContent = muted ? '♪✕' : '♪'; if (!muted) snd('ally'); }
-
-/* full-screen anime hit */
-function slam(text, sub, tone = 'up', ms = 1800) {
-  return new Promise(res => {
-    const o = document.createElement('div'); o.className = 'ov ' + tone;
-    o.innerHTML = `<div class="speed"></div><div class="burst" style="clip-path:${burstClip(22)}"></div><div class="burst in" style="clip-path:${burstClip(16, .7)}"></div>
-      <div class="sfx">${text}</div>${sub ? `<div class="ovsub">${sub}</div>` : ''}<div class="ovtap">TAP TO CONTINUE</div>`;
-    document.body.appendChild(o); fitSfx(o); shock(innerWidth / 2, innerHeight / 2, tone); if (tone !== 'ally') { impact(); storm(tone === 'win' ? 8 : 5); } if (tone === 'win') fireworks(); sparks(innerWidth / 2, innerHeight / 2, tone === 'win' ? 140 : 90, tone, 1.6); if (tone === 'warn') quake(); snd(tone === 'warn' ? 'warn' : tone === 'ally' ? 'ally' : tone === 'win' ? 'win' : 'up');
-    buzz(tone === 'warn' ? [200, 60, 200, 60, 300] : tone === 'win' ? [100, 50, 100, 50, 300] : [60, 40, 140]);
-    const done = () => { if (!o.isConnected || o.classList.contains('bye')) return; o.classList.add('bye'); setTimeout(() => { o.remove(); res(); }, 250); };
-    o.addEventListener('click', done); setTimeout(done, ms);
-  });
+function toast(m) { const t = document.createElement('div'); t.className = 'toast rise'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2800); }
+const base = () => location.origin;
+function qrSvg(code) {
+  if (typeof qrcode === 'undefined') return '<div style="color:#333;font-size:11px;padding:30px 6px">QR library blocked — needs internet</div>';
+  const q = qrcode(0, 'M'); q.addData(`${base()}/q/${code}`); q.make(); return q.createSvgTag({ cellSize: 6, margin: 0, scalable: true });
 }
 
-/* ink burst wherever you tap */
-const TAPCLIP = burstClip(9, .45);
-document.addEventListener('pointerdown', e => {
-  if (e.target.closest('#scanner,#intro')) return;
-  const t = document.createElement('div'); t.className = 'tapfx'; t.style.cssText = `left:${e.clientX}px;top:${e.clientY}px;clip-path:${TAPCLIP}`;
-  document.body.appendChild(t); setTimeout(() => t.remove(), 450);
-});
-const slashT = () => { const s = document.createElement('div'); s.className = 'shut'; s.innerHTML = Array.from({ length: 7 }, (_, i) => `<i style="--i:${i}"></i>`).join(''); document.body.appendChild(s); setTimeout(() => s.remove(), 900); };
-
-/* sigil badge from team name */
-function sigil(name, size = '') {
-  const w = String(name).trim().split(/\s+/).filter(Boolean), ini = ((w[0]?.[0] || '?') + (w[1]?.[0] || w[0]?.[1] || '')).toUpperCase();
-  let h = 0; for (const c of String(name)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return `<div class="sigil ${['', 'v', 'g'][h % 3]} ${size}">${esc(ini)}</div>`;
+async function load() {
+  try { S = await api('/api/admin/state'); } catch (e) { if (e.auth) return loginView(); throw e; }
+  if (!selTeam || !S.teams.find(t => t.id === selTeam)) selTeam = S.teams[0]?.id ?? null;
+  draft = tab === 'teams' && draft ? draft : null;
+  render(); if (!window._booted) { window._booted = true; boot(() => {}); }
 }
-
-const TICK = 'HASMUKH KARKHANA ✦ TREASURE HUNT ✦ 宝探し ✦ FIND THE QR ✦ TRUST NO ONE ✦ ';
-const ticker = () => `<div class="ticker"><div>${TICK.repeat(6)}</div></div>`;
-const topbar = (right = '') => `${ticker()}<div class="top"><div class="brand"><div class="logo">HK</div><div>HASMUKH KARKHANA<small>TREASURE HUNT</small></div></div><div class="row tight" style="gap:8px"><span class="chip mute" id="mutechip" onclick="toggleMute()">${muted ? '♪✕' : '♪'}</span>${right}</div></div>`;
-const stage = (sfx, o = {}) => `<div class="stage ${o.shake ? 'shake' : ''} ${o.compact ? 'cpt' : ''}" ${o.compact ? 'style="min-height:240px"' : ''}><div class="speed"></div>
-  <div class="burst" style="clip-path:${burstClip()}"></div><div class="burst in" style="clip-path:${burstClip(16, .7)}"></div>
-  <div class="sfx ${o.sm ? 'sm' : ''} ${o.glitch ? 'glitch' : ''}">${sfx}</div>${o.kicker ? `<div class="kicker">${o.kicker}</div>` : ''}</div>`;
-
-/* ---------- intro ---------- */
-function intro(done) {
-  const seen = (() => { try { return sessionStorage.getItem('hkIntro'); } catch { return 1; } })();
-  if (seen) return done();
-  const el = document.createElement('div'); el.id = 'intro';
-  el.style.setProperty('--ang', `-${(Math.atan2(innerHeight, innerWidth) * 180 / Math.PI).toFixed(1)}deg`);
-  el.innerHTML = `<div class="speed"></div><div class="dots"></div><div class="kanji">宝探し</div>
-    <div class="rumble l">ゴゴゴゴゴ</div><div class="rumble r">ゴゴゴゴゴ</div>
-    <div class="bar t"></div><div class="bar b"></div>
-    <div class="core"><div class="ep">第一話 · EPISODE 01</div>
-      <h1 class="l">HASMUKH</h1><h1 class="r"><span>KARKHANA</span></h1>
-      <div class="sub">THE GREAT TREASURE HUNT</div><div class="tap">▶ TAP TO ENTER ◀</div></div>
-    <div class="stk s1">ドン!!</div><div class="stk s2">ババーン</div>
-    <div class="half a"></div><div class="half b"></div><div class="cutline"></div>
-    <div class="slash"></div>
-    <div class="pw"><b id="pwn">POWER 0000</b><div><i id="pwb"></i></div></div>`;
-  document.body.appendChild(el); const rn = document.getElementById('rain'); if (rn) rn.style.zIndex = 101;
-  { let v = 0; const n = document.getElementById('pwn'), bar = document.getElementById('pwb'); const iv = setInterval(() => { v = Math.min(9001, v + 180 + Math.random() * 520); if (!n || !n.isConnected) return clearInterval(iv); n.textContent = v >= 9001 ? "POWER OVER 9000!" : "POWER " + String(Math.floor(v)).padStart(4, "0"); bar.style.width = Math.min(100, v / 90) + "%"; if (v >= 9001) { clearInterval(iv); sparks(innerWidth / 2, innerHeight * .45, 120, "win", 1.8); quake(); } }, 90); }
-  snd('hit'); setTimeout(() => { snd('up'); buzz([30, 20, 120]); sparks(innerWidth / 2, innerHeight / 2, 80, 'up', 1.4); quake(); }, 1150);
-  let gone = false;
-  const enter = e => {
-    if (gone) return; gone = true;
-    try { sessionStorage.setItem('hkIntro', '1'); } catch {}
-    snd('ally'); buzz([40, 30, 90]);
-    if (RM) { el.classList.add('out'); setTimeout(done, 280); setTimeout(() => { el.remove(); if (rn) rn.style.zIndex = ''; }, 900); return; }
-    shatter(e?.clientX ?? innerWidth / 2, e?.clientY ?? innerHeight / 2, 'intro'); el.remove(); if (rn) rn.style.zIndex = ''; done();
-  };
-  el.addEventListener('click', enter);
-}
-
-/* ---------- in-app QR scanner ---------- */
-const parseCode = t => { t = String(t || '').trim(); const m = t.match(/\/q\/([a-z0-9]+)/i); const c = (m ? m[1] : t).toLowerCase(); return /^[a-z0-9]{4,24}$/.test(c) ? c : null; };
-function openScanner() {
-  const o = document.createElement('div'); o.id = 'scanner';
-  o.innerHTML = `<video playsinline muted autoplay></video><canvas hidden></canvas>
-    <div class="vf"><i></i><i></i><i></i><i></i><b></b></div>
-    <div class="st"><h2>SCAN QR</h2><span class="chip" id="sx">✕ Close</span></div>
-    <div class="smsg" id="smsg">Aim at the QR code</div>
-    <div class="up"><label class="btn ghost sm">Use a photo instead<input type="file" accept="image/*" id="sfile" hidden></label></div>`;
-  document.body.appendChild(o);
-  const v = o.querySelector('video'), cv = o.querySelector('canvas'), ctx = cv.getContext('2d', { willReadFrequently: true }), msg = o.querySelector('#smsg');
-  let stream = null, raf = 0, stopped = false, n = 0;
-  const say = (t, bad) => { msg.textContent = t; msg.classList.toggle('bad', !!bad); };
-  const esc_ = e => { if (e.key === 'Escape') close(); };
-  const close = () => { stopped = true; cancelAnimationFrame(raf); stream?.getTracks().forEach(t => t.stop()); window.removeEventListener('keydown', esc_); o.remove(); };
-  window.addEventListener('keydown', esc_);
-  const hit = txt => { const c = parseCode(txt); if (!c) { say('That QR isn’t from this hunt', true); return false; } buzz(60); close(); go('/q/' + c); return true; };
-  const det = ('BarcodeDetector' in window) ? (() => { try { return new BarcodeDetector({ formats: ['qr_code'] }); } catch { return null; } })() : null;
-  const decode = async src => {
-    if (det) { try { const r = await det.detect(src); if (r[0]?.rawValue) return r[0].rawValue; } catch {} }
-    if (window.jsQR) {
-      const w = src.videoWidth || src.width, h = src.videoHeight || src.height; if (!w) return null;
-      cv.width = w; cv.height = h; ctx.drawImage(src, 0, 0, w, h);
-      const d = ctx.getImageData(0, 0, w, h); return jsQR(d.data, w, h, { inversionAttempts: 'attemptBoth' })?.data || null;
-    }
-    return null;
-  };
-  const loop = async () => { if (stopped) return; if (v.readyState >= 2 && ++n % 4 === 0) { const t = await decode(v); if (t && hit(t)) return; } raf = requestAnimationFrame(loop); };
-  o.querySelector('#sx').onclick = close;
-  o.querySelector('#sfile').onchange = async e => {
-    const f = e.target.files[0]; if (!f) return;
-    try { const bmp = await createImageBitmap(f); const t = await decode(bmp); if (!t || !hit(t)) say(t ? 'That QR isn’t from this hunt' : 'No QR found in that photo', true); } catch { say('Couldn’t read that photo', true); }
-  };
-  if (!navigator.mediaDevices?.getUserMedia) return say('Camera not available here. Use a photo instead.', true);
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
-    .then(s => { if (stopped) return s.getTracks().forEach(t => t.stop()); stream = s; v.srcObject = s; v.play().catch(() => {}); loop(); })
-    .catch(() => say('Camera blocked. Allow camera access, or use a photo.', true));
-}
-
-/* ---------- routing ---------- */
-async function route() {
-  clear();
-  try { await api('/api/me').then(d => me = d); } catch (e) { if (!e.login) return fail(e); }
-  if (!me) { loginView(); return intro(() => {}); }
-  const m = location.pathname.match(/^\/q\/([a-z0-9]+)/);
-  if (m) return scanView(m[1]);
-  homeView();
-}
-function fail(e) { $app.innerHTML = topbar() + `<div class="card hot center">${stage('OFFLINE!', { sm: 1, compact: 1 })}<p class="muted">${esc(e.message)}</p><button class="btn" onclick="route()">Try again</button></div>`; }
-function go(path) { slashT(); setTimeout(() => { history.pushState({}, '', path); route(); }, 300); }
-window.addEventListener('popstate', route);
-
-/* ---------- login ---------- */
+async function logout() { await fetch('/api/logout', { method: 'POST' }); S = null; load(); }
 function loginView() {
-  $app.innerHTML = `${ticker()}<div class="rise" style="padding-top:22px">
-    <div class="login-title" style="position:relative"><span class="sticker a">ドン!!</span><span class="sticker b">ゴゴゴ</span>
-      <div class="jp">第一話 · 宝 探 し</div><h1>HASMUKH<br><span>KARKHANA</span></h1><p>TREASURE HUNT</p></div>
-    <form class="card hot" id="f"><h3>Team login</h3>
-      <label style="margin-top:0">Team name</label><input name="team" autocomplete="username" autocapitalize="off" required>
-      <label>Password</label><input name="password" type="password" autocomplete="current-password" required>
-      <div class="err" id="err"></div>
-      <button class="btn" style="margin-top:6px">Enter the hunt ▶</button>
-    </form>
-    <p class="center muted small" style="font-family:var(--head);letter-spacing:.2em">YOUR ORGANISER GAVE YOU A TEAM NAME + PASSWORD</p></div>`;
-  document.getElementById('f').onsubmit = async e => {
-    e.preventDefault(); const f = new FormData(e.target);
-    try { await api('/api/login', { method: 'POST', body: { team: f.get('team'), password: f.get('password') } }); flash(); snd('up'); route(); }
-    catch (er) { document.getElementById('err').textContent = '✕ ' + er.message; buzz(200); snd('hit'); }
-  };
+  clearInterval(timer);
+  $app.innerHTML = `<div style="max-width:380px;margin:12vh auto 0" class="rise"><div class="center" style="margin-bottom:20px"><div class="sfx sm" style="display:inline-block;animation:none;font-size:56px;transform:rotate(-4deg)">COMMAND</div><div class="eyebrow" style="margin-top:12px">Organiser login</div></div>
+  <form class="card" id="f"><label>Admin password</label><input type="password" name="p" required autofocus><div class="err" id="err"></div><button class="btn">Unlock</button></form></div>`;
+  document.getElementById('f').onsubmit = async e => { e.preventDefault();
+    try { await api('/api/admin/login', 'POST', { password: new FormData(e.target).get('p') }); load(); }
+    catch (er) { document.getElementById('err').textContent = er.message; } };
 }
-async function logout() { await api('/api/logout', { method: 'POST' }).catch(() => {}); me = null; history.replaceState({}, '', '/'); route(); }
+const setTab = t => { tab = t; localStorage.setItem('tab', t); render(); };
 
-/* ---------- home ---------- */
-function gauge(done, total, finished) {
-  const dense = total > 16;
-  return `<div class="gauge ${dense ? 'dense' : ''}">${Array.from({ length: total }, (_, i) => `<i style="--i:${i}" class="${i < done ? 'on' : (!finished && i === done ? 'now' : '')}"><b>${i + 1}</b></i>`).join('')}</div>`;
-}
-function homeView() {
-  const d = me;
-  const last = d.revealed[d.revealed.length - 1];
-  const clueText = d.finished ? null : (last ? last.clue : d.startClue);
-  const unseen = d.events.filter(e => !e.seen);
-  const rank = d.leaderboard.findIndex(t => t.id === d.team.id) + 1;
-  const st = d.stats || { assists: 0, sabotages: 0, hits: 0 };
-  const head = d.finished ? 'MISSION COMPLETE' : d.progress === 0 ? 'THE HUNT BEGINS' : 'KEEP HUNTING';
-  $app.innerHTML = `
-  ${topbar(`<span class="chip" onclick="logout()"><i class="dot"></i>${esc(d.team.name)} ✕</span>`)}
-  ${!d.active ? `<div class="notice">⏸ THE HUNT IS PAUSED BY THE ORGANISERS. HANG TIGHT.</div>` : ''}
-  <div class="card hot player rise">
-    <div class="plhead">${sigil(d.team.name, '')}<div><span class="rankbadge">RANK #${rank || '-'}</span><h2>${esc(d.team.name)}</h2></div></div>
-    ${gauge(d.progress, d.total, d.finished)}
-    <div class="eyebrow" style="margin:2px 0 0">${head} — ${d.finished ? 'ALL QRs FOUND' : `${d.total - d.progress} QR${d.total - d.progress === 1 ? '' : 'S'} LEFT`}</div>
-    <div class="stats">
-      <div class="stat y"><b>${d.progress}/${d.total}</b><span>FOUND</span></div>
-      <div class="stat g"><b>${st.assists}</b><span>ASSISTS</span></div>
-      <div class="stat"><b>${st.sabotages}</b><span>SABOTAGES</span></div>
-      <div class="stat"><b>${st.hits}</b><span>TIMES HIT</span></div>
-    </div>
-  </div>
-
-  ${unseen.map(e => `<div class="notice ${e.type} rise">${esc(evText(e))}<small>${new Date(e.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></div>`).join('')}
-
-  ${d.finished ? `<div class="parch rise"><div class="eyebrow">Final panel</div>You cracked the last clue. Run to the organisers and claim your treasure!</div>` :
-  clueText ? `<div class="parch rise"><div class="eyebrow">${last ? `Clue ${last.idx + 1} — next target` : 'Opening clue'}</div>${esc(clueText)}</div>` : `<div class="card"><p class="muted">No starting clue yet. Ask the organisers.</p></div>`}
-
-  <div class="card hot"><h3>Found a QR?</h3>
-    <button class="btn scan" id="scanbtn" ${d.active ? '' : 'disabled'}>◉ Scan QR code</button>
-    <div class="or">OR TYPE THE CODE</div>
-    <form class="row" id="codef"><input name="c" placeholder="CODE UNDER THE QR" autocapitalize="off" style="flex:2"><button class="btn" style="flex:1">Open</button></form>
-  </div>
-
-  ${d.revealed.length ? `<div class="card"><details><summary>Clues collected (${d.revealed.length})</summary><div style="margin-top:10px">
-    ${d.revealed.map(r => `<div class="item"><div class="num">${r.idx + 1}</div><div style="font-family:var(--hand);font-weight:700;font-size:17px">${esc(r.clue)}</div></div>`).join('')}</div></details></div>` : ''}
-
-  <div class="card"><h3>Rankings</h3>
-    ${d.leaderboard.map((t, i) => `<div class="lb ${t.id === d.team.id ? 'me' : ''} ${i === 0 ? 't1' : ''}"><div class="pos">${i + 1}</div><div class="nm">${esc(t.name)}${t.finishedAt ? ' <span class="fin">★</span>' : ''}</div><div class="bar"><i style="width:${t.total ? t.progress / t.total * 100 : 0}%"></i></div><div class="small muted">${t.progress}/${t.total}</div></div>`).join('') || '<p class="muted">No teams yet.</p>'}
-  </div>
-
-  <div class="card"><details><summary>How it works</summary>
-    <ol class="rules">
-      <li>Your route is <b>yours alone</b>. Other teams hunt different QRs in a different order.</li>
-      <li>Scan your next QR to unlock its clue. Each clue points to the QR after it.</li>
-      <li>Stumble on someone else’s QR? <b>Assist</b> sends them its location. <b>Sabotage</b> jams their clue for a while. Sabotage needs time to recharge.</li>
-      <li>First squad to finish wins the treasure.</li>
-    </ol></details></div>
-
-  ${d.events.length > unseen.length ? `<div class="card"><details><summary>Earlier messages</summary><div style="margin-top:12px">${d.events.filter(e => e.seen).map(e => `<div class="notice ${e.type}">${esc(evText(e))}</div>`).join('')}</div></details></div>` : ''}`;
-
-  document.getElementById('scanbtn').onclick = openScanner;
-  document.getElementById('codef').onsubmit = e => {
-    e.preventDefault(); let c = new FormData(e.target).get('c').trim().toLowerCase();
-    c = c.split('/q/').pop(); if (c) go('/q/' + c);
-  };
-  if (unseen.length) {
-    api('/api/events/seen', { method: 'POST' }).catch(() => {});
-    const hitEv = unseen.find(e => e.type === 'sabotage'), allyEv = unseen.find(e => e.type === 'assist');
-    if (hitEv) { shatter(innerWidth / 2, innerHeight * .4, 'warn'); slam('SABOTAGED!', 'ANOTHER TEAM JAMMED ONE OF YOUR QRs', 'warn', 2200); }
-    else if (allyEv) slam('ALLY SIGNAL', 'A TEAM SENT YOU A LOCATION', 'ally', 2200);
-  }
-  poll = setInterval(async () => {
-    try { const prev = me.events.length + '|' + me.progress + '|' + me.leaderboard.map(t => t.progress).join();
-      me = await api('/api/me');
-      const cur = me.events.length + '|' + me.progress + '|' + me.leaderboard.map(t => t.progress).join();
-      if (prev !== cur && !document.activeElement?.matches('input') && !document.getElementById('scanner')) homeView(); } catch {}
-  }, 6000);
+function render() {
+  clearInterval(timer);
+  const tabs = [['overview', 'Live'], ['stations', 'QR stations'], ['teams', 'Teams & clues'], ['map', 'Route map'], ['activity', 'Activity'], ['audit', 'Audit log'], ['settings', 'Settings']];
+  $app.innerHTML = `<div class="top"><div class="radar" title="System online"><i style="left:62%;top:30%"></i><i style="left:28%;top:64%;animation-delay:.7s"></i></div><div class="brand"><div class="logo">HK</div><div>HASMUKH KARKHANA<small>COMMAND CENTRE</small></div></div>
+    <span class="chip" onclick="logout()">Log out</span></div>
+    <div class="tabs">${tabs.map(([k, l]) => `<div class="tab ${tab === k ? 'on' : ''}" onclick="setTab('${k}')">${l}</div>`).join('')}</div><div id="body"></div>`;
+  { const b0 = document.getElementById('body'); b0.classList.add('fx'); setTimeout(() => b0.classList.remove('fx'), 1600); }
+  ({ overview, stations, teams, map: routeMap, activity, audit, settings })[tab]();
+  const bd = document.getElementById('body'); if (bd && lastTab !== null && lastTab !== tab) { bd.classList.remove('tabswap'); void bd.offsetWidth; bd.classList.add('tabswap'); } lastTab = tab;
+  if (!document.querySelector('.beam')) { const bm = document.createElement('div'); bm.className = 'beam'; document.body.appendChild(bm); }
 }
 
-/* ---------- scan ---------- */
-async function scanView(code) {
-  $app.innerHTML = topbar() + `<div class="card center"><div class="stage" style="min-height:200px"><div class="speed"></div><div class="sfx sm">SCANNING…</div></div></div>`;
-  let r;
-  try { r = await api('/api/scan/' + code); } catch (e) { return e.login ? route() : fail(e); }
-  const back = `<button class="btn ghost" style="margin-top:6px" onclick="go('/')">◀ Back to my quest</button>`;
-  const head = topbar(`<span class="chip" onclick="go('/')">Home</span>`);
+/* ---- Live ---- */
+function overview() {
+  const b = document.getElementById('body');
+  const k = { assist: S.log.filter(e => e.type === 'assist').length, sab: S.log.filter(e => e.type === 'sabotage').length, fin: S.teams.filter(t => t.finishedAt).length };
+  const kp = (v, l, c, i) => `<div class="kpi ${c}" style="--k:${i}"><b data-to="${v}">${v}</b><span>${l}</span></div>`;
+  b.innerHTML = `<div class="kpis">${kp(S.teams.length, 'SQUADS', 'w', 0)}${kp(S.stations.length, 'QR NODES', '', 1)}${kp(S.locks.length, 'ACTIVE JAMS', 'r', 2)}${kp(k.sab, 'SABOTAGES', 'r', 3)}${kp(k.assist, 'ASSISTS', 'g', 4)}${kp(k.fin, 'FINISHED', 'g', 5)}</div>
+    <div class="two"><div><div class="card"><div class="eyebrow">Hunt status</div>
+      <h3>${S.settings.active ? '● RUNNING' : '❚❚ PAUSED'}</h3>
+      <button class="btn ${S.settings.active ? 'ghost' : 'green'}" style="margin-top:8px" onclick="toggle()">${S.settings.active ? 'Pause hunt' : 'Start hunt'}</button></div>
+      <div class="card"><h3>Active sabotages</h3>${S.locks.length ? S.locks.map(l => `<div class="item"><div style="flex:1"><b>${esc(l.victim)}</b> locked at ${esc(l.station)}<div class="small muted">by ${esc(l.byTeam)} · ${Math.ceil((l.until - S.now) / 60000)} min left</div></div><button class="btn sm ghost" onclick="unlock(${l.victimId},${l.stationId})">Lift</button></div>`).join('') : '<p class="muted small">None right now.</p>'}</div></div>
+    <div class="card"><h3>Where is everyone?</h3>${S.teams.map(t => { const nx = t.route[t.progress]; const stn = nx && S.stations.find(x => x.id === nx.station_id); return `<div class="item"><div style="flex:1"><b>${esc(t.name)}</b><div class="small muted">${t.finishedAt ? 'Finished ★' : stn ? 'Heading to: ' + esc(stn.name) + ' (step ' + (t.progress + 1) + '/' + t.total + ')' : 'No route yet'}</div></div></div>`; }).join('') || '<p class="muted small">No teams.</p>'}</div>
+      <div class="card"><h3>Leaderboard</h3>${S.leaderboard.map((t, i) => `<div class="lb"><div class="pos">${i + 1}</div><div style="flex:0 0 35%">${esc(t.name)}${t.finishedAt ? ' ★' : ''}</div><div class="bar"><i style="width:${t.total ? t.progress / t.total * 100 : 0}%"></i></div><div class="small muted" style="min-width:34px">${t.progress}/${t.total}</div><div class="small" title="Assists given (✚) · Sabotages given (✕)" style="min-width:62px;text-align:right">✚${t.assistsGiven} ✕${t.sabotagesGiven}</div></div>`).join('') || '<p class="muted">Add teams to get started.</p>'}</div></div>`;
+  countUp();
+  timer = setInterval(async () => { try { const old = S; S = await api('/api/admin/state'); newAlerts(old, S); overview(); } catch {} }, 5000);
+}
+async function toggle() { await api('/api/admin/settings', 'PUT', { active: !S.settings.active }); load(); }
+async function unlock(v, st) { await api(`/api/admin/locks/${v}/${st}`, 'DELETE'); load(); }
 
-  if (r.status === 'unknown') { $app.innerHTML = head + `<div class="card hot center">${stage('WHO?!', { shake: 1, kicker: 'THAT QR ISN’T PART OF THE HUNT' })}</div>` + back; snd('hit'); return; }
-  if (r.status === 'inactive') { $app.innerHTML = head + `<div class="card hot center">${stage('PAUSED', { kicker: 'COME BACK WHEN THE ORGANISERS RESTART IT' })}</div>` + back; return; }
-
-  if (r.status === 'advance' || r.status === 'finished' || r.status === 'replay') {
-    const fin = r.status === 'finished', rep = r.status === 'replay';
-    $app.innerHTML = head + `${stage(fin ? 'VICTORY!' : rep ? 'REVISITED' : 'FOUND IT!', { shake: !rep, sm: rep, kicker: `<b class="${fin ? 'ok' : ''}">${rep ? 'CLUE' : 'STEP'} ${r.step}/${r.total}</b> &nbsp;${esc(r.station)}` })}
-      <div class="parch rise" style="animation-delay:.6s"><div class="eyebrow">${fin ? 'Final message' : 'Your next clue'}</div>${esc(r.clue)}</div>${back}`;
-    if (fin) setTimeout(() => shatter(innerWidth / 2, innerHeight / 2, 'win'), 900);
-    if (!rep) { flash(); confetti(); sparks(innerWidth / 2, innerHeight * .3, 110, fin ? 'win' : 'up', 1.5); slam(fin ? 'VICTORY!' : 'LEVEL UP!', fin ? 'ALL QRs FOUND — YOU WIN!' : `STEP ${r.step} OF ${r.total} CLEARED`, fin ? 'win' : 'up', fin ? 2600 : 1500); }
-    return;
-  }
-
-  if (r.status === 'locked') {
-    const end = Date.now() + (r.until - r.now);
-    $app.innerHTML = head + `<div class="card hot center">${stage('JAMMED!', { shake: 1, glitch: 1, kicker: 'ANOTHER TEAM SABOTAGED THIS CLUE' })}
-      <div class="hazard"></div><div class="eyebrow">Unlocks in</div><div class="timer" id="cd">${fmt(end - Date.now())}</div><div class="hazard"></div>
-      <p class="muted small">Hunt other QRs meanwhile, or find a way to help someone else.</p></div>${back}`;
-    buzz([200, 60, 200]); snd('warn');
-    tick = setInterval(() => { const left = end - Date.now(); const el = document.getElementById('cd');
-      if (left <= 0) { clear(); scanView(code); } else if (el) el.textContent = fmt(left); }, 500);
-    return;
-  }
-
-  if (r.status === 'shared') {
-    const who = r.mates.map(esc).join(', ');
-    $app.innerHTML = head + `<div class="card hot center sync">${stage('SYNC POINT', { sm: 1, compact: 1, kicker: `SAME QR · SAME STEP AS ${who.toUpperCase()}` })}
-      <p class="muted" style="margin:6px 0 0">Your route and <b>${who}</b>’s route both reach this QR at <b>step ${r.step}</b>. Nothing to do here yet. It opens for you when you get to step ${r.step}.</p></div>
-      ${r.clue ? `<div class="parch rise"><div class="eyebrow">Your current clue</div>${esc(r.clue)}</div>` : ''}${back}`;
-    snd('ally'); return;
-  }
-
-  // foreign / not yet: versus screen
-  const t = r.targets || [];
-  const early = r.status === 'notyet';
-  let sel = t.length === 1 ? t[0].id : null;
-  let cdEnd = Date.now() + (r.cooldownLeft || 0);
-  const vsR = () => { const tg = t.find(x => x.id === sel); return tg ? `${sigil(tg.name, 'xl')}<div class="nm">${esc(tg.name)}</div><div class="tag">TARGET</div>` : `<div class="q">?</div><div class="tag">PICK A TARGET</div>`; };
-  $app.innerHTML = head + `<div class="card hot center">${stage(early ? 'TOO EARLY!' : 'INTRUDER!', { shake: 1, compact: 1, kicker: early ? 'THIS QR COMES LATER ON YOUR ROUTE' : 'THIS QR ISN’T ON YOUR ROUTE' })}</div>
-    ${t.length ? `<div class="vs rise"><div class="L">${sigil(me.team.name, 'xl')}<div class="nm">${esc(me.team.name)}</div><div class="tag">YOU</div></div><div class="R" id="vsR">${vsR()}</div><div class="vsb">VS</div></div>
-    <div class="card rise"><h3>Choose your move</h3>
-      ${t.length > 1 ? `<label style="margin-top:0">Whose QR is this?</label><div class="chips" id="chips">${t.map(x => `<span class="pick" data-id="${x.id}">${esc(x.name)}</span>`).join('')}</div>` : `<p style="margin:0">This QR is on <b>${esc(t[0].name)}</b>’s route.</p>`}
-      <div class="choice">
-        <button class="btn green" id="assist"><span>✚ Assist</span><small>Send them this QR’s location</small></button>
-        <button class="btn red" id="sab"><span>✕ Sabotage</span><small id="sabsub">Lock their clue here for ${r.sabotageMinutes} min</small></button>
-      </div><div class="err" id="err"></div></div>` : `<div class="card center"><p class="muted">No other team needs this QR right now.</p></div>`}${back}`;
-  snd('hit');
-  if (!t.length) return;
-  const chips = document.getElementById('chips');
-  const refresh = () => {
-    chips?.querySelectorAll('.pick').forEach(c => c.classList.toggle('on', +c.dataset.id === sel));
-    const tg = t.find(x => x.id === sel), left = cdEnd - Date.now();
-    document.getElementById('assist').disabled = !tg || tg.assisted;
-    document.getElementById('sab').disabled = !tg || tg.locked || left > 0;
-    document.getElementById('sabsub').textContent = tg?.locked ? 'Already jammed' : left > 0 ? `Recharging… ${fmt(left)}` : `Lock their clue here for ${r.sabotageMinutes} min`;
-    if (tg?.assisted) document.querySelector('#assist small').textContent = 'You already helped them here';
-  };
-  chips?.addEventListener('click', e => { const c = e.target.closest('.pick'); if (c) { sel = +c.dataset.id; document.getElementById('vsR').innerHTML = vsR(); refresh(); } });
-  const act = async kind => {
-    try { const j = await api(`/api/scan/${code}/${kind}`, { method: 'POST', body: { teamId: sel } });
-      const tg = t.find(x => x.id === sel);
-      if (kind === 'assist') { tg.assisted = true; slam('ALLY!', `LOCATION SENT TO ${esc(tg.name.toUpperCase())}`, 'ally', 1700); }
-      else { tg.locked = true; cdEnd = Date.now() + (j.cooldownLeft || 0); slam('SABOTAGE!!', `${esc(tg.name.toUpperCase())} IS JAMMED`, 'warn', 1900); }
-      flash(); refresh();
-    } catch (e) { document.getElementById('err').textContent = '✕ ' + e.message; snd('hit'); }
-  };
-  document.getElementById('assist').onclick = () => act('assist');
-  let armed = false;
-  document.getElementById('sab').onclick = () => {
-    const b = document.getElementById('sab');
-    if (!armed) { armed = true; b.querySelector('span').textContent = '⚠ Tap again to confirm'; setTimeout(() => { armed = false; b.querySelector('span').textContent = '✕ Sabotage'; }, 3000); return; }
-    armed = false; b.querySelector('span').textContent = '✕ Sabotage'; act('sabotage');
-  };
-  refresh(); tick = setInterval(refresh, 1000);
+/* ---- Stations ---- */
+function stations() {
+  const b = document.getElementById('body');
+  b.innerHTML = `<div class="card"><h3>Add a QR station</h3>
+    <label style="margin-top:0">Name (organiser only)</label><input id="sn" placeholder="e.g. Library Pillar">
+    <label>Riddle that leads TO this QR</label><textarea id="sr" placeholder="e.g. Where books sleep standing up, a stone giant holds the roof."></textarea>
+    <label>Location hint (sent when a team presses Assist)</label><input id="sl" placeholder="e.g. Library, 2nd floor, behind the pillar">
+    <button class="btn" style="margin-top:12px" onclick="addStation()">Add station</button>
+    <p class="hint">How clues work: each station owns the riddle that leads to it. A team’s route is just an order of stations, so a team’s clue after step N is automatically the riddle of step N+1. You can still override any single clue in <b>Teams &amp; clues</b>.</p>
+    <p class="small muted" style="margin:10px 0 0">QR links point to <code>${esc(base())}/q/…</code></p></div>
+    <div class="row tight" style="margin-bottom:12px"><button class="btn sm" onclick="printAll()">Print all QR codes</button></div>
+    <div class="grid">${S.stations.map(s => `<div class="card stcard"><div class="qr">${qrSvg(s.code)}</div><b>${esc(s.name)}</b><div class="hint">${s.riddle ? '“' + esc(s.riddle) + '”' : '<span style="color:var(--gold)">No riddle yet (teams will see “Find ' + esc(s.name) + '”)</span>'}</div><div class="small muted">${esc(s.location) || 'No location hint'}</div><code>${esc(s.code)}</code><div class="used">${usedBy(s.id)}</div>
+    <div class="row" style="margin-top:10px"><button class="btn sm ghost" onclick="editStation(${s.id})">Edit</button><button class="btn sm ghost" onclick="delStation(${s.id})">Delete</button></div></div>`).join('')}</div>
+    ${S.stations.length ? '' : '<p class="muted center">No stations yet.</p>'}`;
+}
+async function addStation() { const n = document.getElementById('sn').value, l = document.getElementById('sl').value, r = document.getElementById('sr').value;
+  try { await api('/api/admin/stations', 'POST', { name: n, location: l, riddle: r }); load(); } catch (e) { toast(e.message); } }
+async function editStation(id) { const s = S.stations.find(x => x.id === id);
+  const n = prompt('Station name', s.name); if (n === null) return; const r = prompt('Riddle that leads to this QR', s.riddle || ''); if (r === null) return; const l = prompt('Location hint', s.location); if (l === null) return;
+  await api('/api/admin/stations/' + id, 'PUT', { name: n, location: l, riddle: r }); load(); }
+function usedBy(id) { const u = S.teams.map(t => { const i = t.route.findIndex(r => r.station_id === id); return i >= 0 ? `${esc(t.name)} #${i + 1}` : null; }).filter(Boolean); return u.length ? 'Used by: ' + u.join(' · ') : 'Not used in any route yet'; }
+async function delStation(id) {
+  const s = S.stations.find(x => x.id === id), used = S.teams.filter(t => t.route.some(r => r.station_id === id));
+  const msg = used.length ? `“${s.name}” is used in: ${used.map(t => t.name).join(', ')}.\n\nDeleting removes it ONLY from those routes (their other steps stay). Continue?` : `Delete “${s.name}”?`;
+  if (!confirm(msg)) return;
+  try { await api('/api/admin/stations/' + id + (used.length ? '?force=1' : ''), 'DELETE'); draft = null; load(); } catch (e) { toast(e.message); }
+}
+function printAll() {
+  document.getElementById('printSheet').innerHTML = S.stations.map(s => `<div class="p"><div style="font:400 22px Bangers,Impact,sans-serif;letter-spacing:.08em">HASMUKH KARKHANA</div>${qrSvg(s.code)}<h2>SCAN ME</h2><small>Code: ${esc(s.code)}</small></div>`).join('');
+  setTimeout(() => window.print(), 100);
 }
 
-/* ================= V4 FX ENGINE ================= */
+/* ---- Teams & routes ---- */
+function teams() {
+  const b = document.getElementById('body');
+  const t = S.teams.find(x => x.id === selTeam);
+  if (t && (!draft || draft.id !== t.id)) draft = { id: t.id, start: t.start_clue, route: t.route.map(r => ({ ...r })) };
+  b.innerHTML = `<div class="two"><div>
+    <div class="card"><h3>New team</h3><label style="margin-top:0">Team name</label><input id="tn"><label>Password</label><div class="row"><input id="tp" placeholder="team's login password"><button class="btn sm ghost" style="flex:none" onclick="document.getElementById('tp').value=genPw()">Generate</button></div><button class="btn" style="margin-top:12px" onclick="addTeam()">Create team</button></div>
+    <div class="card tlist"><h3>Teams</h3>${S.teams.map(x => `<div class="t ${x.id === selTeam ? 'on' : ''}" onclick="pick(${x.id})"><span>${esc(x.name)}</span><span class="small muted">${x.route.length ? x.route.length + ' steps' : 'NO ROUTE'}</span></div>`).join('') || '<p class="muted small">None yet.</p>'}</div></div>
+    <div>${t ? `<div class="card"><div class="row" style="margin-bottom:6px"><h3 style="flex:1">${esc(t.name)}’s route</h3><button class="btn sm ghost" style="flex:none" onclick="renameTeam(${t.id})">Rename</button><button class="btn sm ghost" style="flex:none" onclick="delTeam(${t.id})">Delete</button></div>
+      <div class="stepbox"><div class="row"><div><div class="small muted">Login</div><div><b>${esc(t.name)}</b> / <code id="pwshow">${esc(t.password)}</code></div></div><button class="btn sm ghost" style="flex:none" onclick="copyLogin(${t.id})">Copy</button><button class="btn sm ghost" style="flex:none" onclick="resetPw(${t.id})">Change password</button></div>
+      <div class="small muted" style="margin-top:8px">Progress ${t.progress}/${t.total} · <a href="#" onclick="resetTeam(${t.id});return false" style="color:var(--gold)">reset this team's progress</a></div></div>
+      <p class="small muted" style="margin:0 0 6px"><b>This route belongs only to ${esc(t.name)}.</b> Editing it never changes any other team. The same QR can be in several teams’ routes. After a team scans step N’s QR, it automatically gets the riddle of step N+1’s QR (type a custom clue only if you want to override it for this team). After the last step it gets the finale message.</p>
+      <div id="routeinfo"><div class="flow">${flowHtml()}</div>${healthHtml()}</div>
+      <div class="row" style="margin:10px 0 0"><select id="copysrc"><option value="">Copy route from another team…</option>${S.teams.filter(x => x.id !== t.id && x.route.length).map(x => `<option value="${x.id}">${esc(x.name)} (${x.route.length} steps)</option>`).join('')}</select><button class="btn sm ghost" style="flex:none" onclick="copyRoute()">Copy</button></div>
+      <label>Starting clue (points to step 1’s QR)</label><textarea id="startc" class="ghost-ph" placeholder="${esc(startAuto())}" oninput="refreshInfo()">${esc(draft.start)}</textarea><p class="hint">Leave blank to use the riddle of step 1’s QR automatically.</p>
+      <label>Route</label><div id="steps">${draft.route.map((r, i) => `<div class="stepbox"><div class="head"><div class="num">${i + 1}</div>
+        <select onchange="draft.route[${i}].station_id=+this.value;refreshInfo()"><option value="">— choose QR station —</option>${S.stations.map(s => `<option value="${s.id}" ${s.id === r.station_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
+        <button class="x" onclick="mv(${i},-1)">↑</button><button class="x" onclick="mv(${i},1)">↓</button><button class="x" onclick="rm(${i})">✕</button></div>
+        <textarea class="ghost-ph" placeholder="${esc(autoClue(i))}" oninput="draft.route[${i}].clue=this.value;refreshInfo()">${esc(r.clue)}</textarea><div class="hint">${r.clue ? 'Custom clue for this team.' : 'Auto: uses ' + (i < draft.route.length - 1 ? 'the riddle of the next QR' : 'the finale message') + '. Type here to override.'}</div></div>`).join('')}</div>
+      <div class="row"><button class="btn ghost" onclick="addStep()">+ Add step</button><button class="btn" onclick="saveRoute()">Save route</button></div></div>` : '<div class="card"><p class="muted">Create a team to build its route.</p></div>'}</div></div>`;
+}
+function flowHtml() {
+  const nm = id => S.stations.find(s => s.id === id)?.name;
+  const steps = draft.route.map((r, i) => nm(r.station_id) ? `<span>${i + 1}. ${esc(nm(r.station_id))}</span>` : `<span class="bad">${i + 1}. ? pick QR</span>`);
+  return `<span class="s">START</span>${steps.map(x => `<em>▶</em>${x}`).join('')}<em>▶</em><span class="f">FINISH</span>`;
+}
+function healthHtml() {
+  const w = [], ids = draft.route.map(r => +r.station_id).filter(Boolean);
+  if (!draft.route.length) w.push('✕ No steps yet. This team has nothing to find.');
+  if (draft.route.length && !draft.start.trim() && !hasRiddle(draft.route[0]?.station_id)) w.push('✕ No starting clue and step 1’s QR has no riddle. The team won’t know where to begin.');
+  draft.route.forEach((r, i) => { if (!r.station_id) w.push(`✕ Step ${i + 1} has no QR chosen.`); else if (i < draft.route.length - 1 && !r.clue.trim() && !hasRiddle(draft.route[i + 1]?.station_id)) w.push(`✕ After step ${i + 1}: no custom clue and the next QR has no riddle.`); });
+  ids.forEach((id, i) => { if (ids.indexOf(id) !== i) w.push(`✕ Step ${i + 1}: “${S.stations.find(s => s.id === id)?.name}” is already used earlier in this route.`); });
+  return w.length ? w.map(x => `<div class="warn">${esc(x)}</div>`).join('') : '<div class="small" style="color:var(--green);font-family:var(--head);letter-spacing:.1em">✓ ROUTE LOOKS GOOD</div>';
+}
+const hasRiddle = id => !!S.stations.find(s => s.id === +id)?.riddle;
+const stName = id => S.stations.find(s => s.id === +id)?.name || '?';
+const autoFor = id => S.stations.find(s => s.id === +id)?.riddle || (id ? `Find “${stName(id)}”.` : '');
+const startAuto = () => draft.route[0] ? 'Auto: ' + autoFor(draft.route[0].station_id) : 'Add a step first';
+const autoClue = i => draft.route[i + 1] ? 'Auto: ' + autoFor(draft.route[i + 1].station_id) : 'Auto: ' + S.settings.finale;
+function refreshInfo() { keepStart(); const el = document.getElementById('routeinfo'); if (el) el.innerHTML = `<div class="flow">${flowHtml()}</div>${healthHtml()}`; }
+function copyRoute() { const id = +document.getElementById('copysrc').value; if (!id) return; const src = S.teams.find(x => x.id === id);
+  if (draft.route.length && !confirm('Replace this team’s current steps with a copy of ' + src.name + '’s route? (Other teams stay untouched.)')) return;
+  keepStart(); draft.route = src.route.map(r => ({ ...r })); teams(); toast('Copied. Now edit the clues for this team, then Save.'); }
+const pick = id => { selTeam = id; draft = null; render(); };
+const addStep = () => { draft.route.push({ station_id: '', clue: '' }); keepStart(); teams(); };
+const rm = i => { draft.route.splice(i, 1); keepStart(); teams(); };
+const mv = (i, d) => { const j = i + d; if (j < 0 || j >= draft.route.length) return; [draft.route[i], draft.route[j]] = [draft.route[j], draft.route[i]]; keepStart(); teams(); };
+const keepStart = () => { const e = document.getElementById('startc'); if (e) draft.start = e.value; };
+async function saveRoute() {
+  keepStart();
+  try { const r = await api('/api/admin/teams/' + draft.id, 'PUT', { start_clue: draft.start, route: draft.route });
+    toast(r.before !== undefined && r.progress !== r.before ? `Saved ✔ Team progress adjusted ${r.before} → ${r.progress} to match the new route` : 'Saved ✔');
+    draft = null; await load(); } catch (e) { toast(e.message); }
+}
+async function addTeam() { try { const r = await api('/api/admin/teams', 'POST', { name: document.getElementById('tn').value, password: document.getElementById('tp').value }); draft = null; selTeam = r.id; await load(); toast('Team created'); } catch (e) { toast(e.message); } }
+const genPw = () => { const w = ['tiger','comet','pixel','maple','rocket','lotus','ember','cobalt','nova','falcon','mango','zebra']; return w[Math.random() * w.length | 0] + (100 + Math.random() * 900 | 0); };
+async function resetPw(id) { const t = S.teams.find(x => x.id === id); const p = prompt('New password for ' + t.name, genPw()); if (p) { try { await api('/api/admin/teams/' + id, 'PUT', { password: p }); toast('Password changed'); draft = null; load(); } catch (e) { toast(e.message); } } }
+async function renameTeam(id) { const t = S.teams.find(x => x.id === id); const n = prompt('Team name', t.name); if (n) { try { await api('/api/admin/teams/' + id, 'PUT', { name: n }); draft = null; load(); } catch (e) { toast(e.message); } } }
+async function resetTeam(id) { if (confirm('Send this team back to the start?')) { await api(`/api/admin/teams/${id}/reset`, 'POST'); toast('Team reset'); load(); } }
+function copyLogin(id) { const t = S.teams.find(x => x.id === id); const txt = `${S.settings.eventName}\n${base()}\nTeam: ${t.name}\nPassword: ${t.password}`; navigator.clipboard?.writeText(txt).then(() => toast('Copied ✔'), () => toast(txt)); }
+async function delTeam(id) { if (confirm('Delete this team?')) { await api('/api/admin/teams/' + id, 'DELETE'); draft = null; selTeam = null; load(); } }
+
+/* ---- Route map ---- */
+function routeMap() {
+  const st = S.stations, tm = S.teams;
+  const cell = (t, s) => { const i = t.route.findIndex(r => r.station_id === s.id); if (i < 0) return '<td class="none">–</td>'; return `<td class="${i < t.progress ? 'done' : 'on'} ${i === t.progress ? 'now' : ''}" title="${esc(t.name)}: step ${i + 1}">${i + 1}</td>`; };
+  const maxSteps = Math.max(0, ...tm.map(t => t.route.length));
+  let clash = 0; for (let i = 0; i < maxSteps; i++) { const seen = {}; tm.forEach(t => { const r = t.route[i]; if (r) { seen[r.station_id] = (seen[r.station_id] || 0) + 1; } }); clash += Object.values(seen).filter(n => n > 1).length; }
+  document.getElementById('body').innerHTML = `<div class="card"><h3>Route map</h3>
+    <p class="hint" style="margin-top:0">Every row is one team’s own route. The number in a cell is the step at which that team visits that QR. Routes are independent: a team’s progress, clues and sabotages never affect another team’s route.</p>
+    ${tm.length && st.length ? `<div class="mxwrap"><table class="mx"><tr><th class="tn">Team</th>${st.map(s => `<th>${esc(s.name)}</th>`).join('')}</tr>
+      ${tm.map(t => `<tr><td class="tn">${esc(t.name)}</td>${st.map(s => cell(t, s)).join('')}</tr>`).join('')}</table></div>
+      <div class="legend"><span><i style="background:var(--gold)"></i>TO DO</span><span><i style="background:var(--green)"></i>DONE</span><span><i style="outline:2px solid #fff"></i>CURRENT TARGET</span></div>
+      <p class="hint">${clash ? `${clash} spot${clash > 1 ? 's' : ''} where two teams are at the same QR on the same step. That’s fine: those teams just get the normal clue there, with no “too early” or “intruder” message.` : 'No two teams are at the same QR on the same step. Nice and spread out.'}</p>` : '<p class="muted">Add stations and teams first.</p>'}</div>
+    <div class="card hot"><h3>Auto-generate routes</h3>
+      <p class="hint" style="margin-top:0">Gives every team its own route of <b>7 QRs</b> picked from all stations, as different from every other team as the maths allows: no two teams on the same QR at the same step, as few shared QRs as possible, and every QR used evenly. Clues come from each station’s riddle. This replaces all current routes and <b>resets all progress</b>, so use it before the hunt starts.</p>
+      <label>QRs per team</label><input id="per" type="number" min="1" max="${st.length || 1}" value="${Math.min(7, st.length || 1)}">
+      <button class="btn red" style="margin-top:12px" onclick="autoRoutes()">Generate routes for all teams</button></div>`;
+}
+async function autoRoutes() {
+  if (!confirm('Replace EVERY team’s route and reset all progress?')) return;
+  try { const r = await api('/api/admin/autoroute', 'POST', { perTeam: document.getElementById('per').value || 7 }); draft = null; await load(); toast(`Done: ${r.teams} routes of ${r.steps} QRs · ${r.samePosition} same-step overlaps`); } catch (e) { toast(e.message); }
+}
+
+/* ---- Activity ---- */
+function activity() {
+  const icon = { assist: '✚', sabotage: '✕', advance: '▶', finish: '★' };
+  const line = e => e.type === 'assist' ? `<b>${esc(e.fromName)}</b> assisted <b>${esc(e.toName)}</b> at <i>${esc(e.stationName)}</i>`
+    : e.type === 'sabotage' ? `<b>${esc(e.fromName)}</b> sabotaged <b>${esc(e.toName)}</b> at <i>${esc(e.stationName)}</i>`
+    : e.type === 'finish' ? `<b>${esc(e.fromName)}</b> finished the hunt!` : `<b>${esc(e.fromName)}</b> found <i>${esc(e.stationName)}</i> (${e.step}/${e.total})`;
+  document.getElementById('body').innerHTML = `<div class="card" style="max-width:720px"><h3>Live activity</h3>
+    ${S.log.length ? S.log.map(e => `<div class="item"><div class="num">${icon[e.type] || '•'}</div><div style="flex:1">${line(e)}</div><div class="small muted">${new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div></div>`).join('') : '<p class="muted">Nothing yet. Assists, sabotages and QR finds show up here live.</p>'}</div>`;
+  timer = setInterval(async () => { try { S = await api('/api/admin/state'); activity(); } catch {} }, 5000);
+}
+
+/* ---- Settings ---- */
+function settings() {
+  const s = S.settings;
+  document.getElementById('body').innerHTML = `<div style="max-width:520px"><div class="card"><h3>Event</h3><label style="margin-top:0">Event name</label><input id="en" value="${esc(s.eventName)}">
+    <label>Finale message (shown after a team’s last QR)</label><textarea id="fin">${esc(s.finale)}</textarea>
+    <label>Sabotage lock duration (minutes)</label><input id="sm" type="number" min="1" max="120" value="${s.sabotageMinutes}">
+    <label>Sabotage cooldown per team (minutes) — stops spamming</label><input id="cm" type="number" min="0" max="60" value="${s.cooldownMinutes}">
+    <button class="btn" style="margin-top:14px" onclick="saveSettings()">Save</button></div>
+    <div class="card"><h3>Danger zone</h3><p class="muted small">Sets every team back to the start and clears sabotages and messages. Routes and clues are kept.</p><button class="btn red" onclick="resetAll()">Reset all progress</button></div></div>`;
+}
+async function saveSettings() { await api('/api/admin/settings', 'PUT', { eventName: document.getElementById('en').value, finale: document.getElementById('fin').value, sabotageMinutes: document.getElementById('sm').value, cooldownMinutes: document.getElementById('cm').value }); toast('Saved ✔'); load(); }
+async function resetAll() { if (confirm('Reset ALL team progress?')) { await api('/api/admin/reset', 'POST'); toast('Reset'); load(); } }
+
+
+/* ---- admin fx helpers ---- */
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const quake = () => { if (RM) return; $app.classList.remove('quake'); void $app.offsetWidth; $app.classList.add('quake'); setTimeout(() => $app.classList.remove('quake'), 520); };
-let cv = null, cx = null, parts = [], raf = 0;
-const PAL = { up: ['#ffc533', '#fff', '#7c3aed', '#bda7f0'], win: ['#ffc533', '#fff', '#35e8a0', '#7c3aed', '#ffd966'], warn: ['#7c3aed', '#bda7f0', '#fff', '#4b2d8f'], ally: ['#35e8a0', '#fff', '#bda7f0'], tap: ['#ffc533', '#fff', '#bda7f0'] };
-function sparks(x, y, n = 20, tone = 'tap', power = 1) {
-  if (RM) return;
-  if (!cv) { cv = document.createElement('canvas'); cv.id = 'fxc'; document.body.appendChild(cv); cx = cv.getContext('2d'); }
-  const dpr = Math.min(2, devicePixelRatio || 1); if (cv.width !== innerWidth * dpr) { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; }
-  const pal = PAL[tone] || PAL.tap;
-  for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, v = (2 + Math.random() * 9) * power;
-    parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 2 * power, life: 1, dec: .012 + Math.random() * .02, len: 6 + Math.random() * 16, w: 1.5 + Math.random() * 3, c: pal[i % pal.length], g: .18 }); }
-  if (parts.length > 700) parts.splice(0, parts.length - 700);
-  if (!raf) raf = requestAnimationFrame(loop);
-}
-let bolts = [];
-function bolt(x1, y1, x2, y2, col = '#fff', glow = '#7c3aed') {
-  if (RM) return; if (!cv) sparks(x1, y1, 0); const pts = [[x1, y1]], n = 14;
-  for (let i = 1; i < n; i++) { const k = i / n; pts.push([x1 + (x2 - x1) * k + (Math.random() - .5) * 70 * Math.sin(k * Math.PI), y1 + (y2 - y1) * k + (Math.random() - .5) * 40]); } pts.push([x2, y2]);
-  bolts.push({ pts, life: 1, col, glow, w: 2 + Math.random() * 3 }); if (!raf) raf = requestAnimationFrame(loop);
-}
-function storm(n = 5) { for (let i = 0; i < n; i++) setTimeout(() => { const side = Math.random() < .5, x = Math.random() * innerWidth; bolt(x, -10, innerWidth / 2 + (Math.random() - .5) * 200, innerHeight * (.35 + Math.random() * .25), '#fff', side ? '#7c3aed' : '#ffc533'); }, i * 90); }
-function fireworks(ms = 3200) { if (RM) return; const t0 = Date.now(), iv = setInterval(() => { if (Date.now() - t0 > ms) return clearInterval(iv); const x = innerWidth * (.12 + Math.random() * .76), y = innerHeight * (.12 + Math.random() * .5); sparks(x, y, 55, 'win', 1.4); shock(x, y, Math.random() < .5 ? 'win' : 'up'); if (Math.random() < .5) bolt(x, -10, x, y, '#fff', '#ffc533'); }, 280); }
-function loop() {
-  const dpr = Math.min(2, devicePixelRatio || 1); cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, innerWidth, innerHeight); cx.lineCap = 'round'; cx.lineJoin = 'round';
-  bolts = bolts.filter(b => b.life > 0);
-  for (const b of bolts) { b.life -= .07; cx.globalAlpha = Math.max(0, b.life); cx.shadowColor = b.glow; cx.shadowBlur = 22; cx.strokeStyle = b.col; cx.lineWidth = b.w * b.life + .5; cx.beginPath(); b.pts.forEach((p, i) => i ? cx.lineTo(p[0], p[1]) : cx.moveTo(p[0], p[1])); cx.stroke(); } cx.shadowBlur = 0;
-  parts = parts.filter(p => p.life > 0);
-  for (const p of parts) { p.vy += p.g; p.vx *= .985; p.x += p.vx; p.y += p.vy; p.life -= p.dec;
-    cx.globalAlpha = Math.max(0, p.life); cx.strokeStyle = p.c; cx.lineWidth = p.w; const m = Math.hypot(p.vx, p.vy) || 1;
-    cx.beginPath(); cx.moveTo(p.x, p.y); cx.lineTo(p.x - p.vx / m * p.len * p.life, p.y - p.vy / m * p.len * p.life); cx.stroke(); }
-  raf = (parts.length || bolts.length) ? requestAnimationFrame(loop) : 0; if (!raf) cx.clearRect(0, 0, innerWidth, innerHeight);
-}
-document.addEventListener('pointerdown', e => {
-  if (e.target.closest('#scanner,#intro')) return; sparks(e.clientX, e.clientY, 12, 'tap', .7);
-  const b = e.target.closest('.btn'); if (b && !RM) { const r = b.getBoundingClientRect(), s = document.createElement('span'); s.className = 'rip'; s.style.left = e.clientX - r.left + 'px'; s.style.top = e.clientY - r.top + 'px'; b.appendChild(s); setTimeout(() => s.remove(), 650); }
-});
-/* spotlight + parallax follow the pointer / tilt of the phone */
-let mt = 0;
-document.addEventListener('pointermove', e => {
-  if (!mt) mt = requestAnimationFrame(() => { mt = 0; const st = document.documentElement.style;
-    st.setProperty('--mx', e.clientX + 'px'); st.setProperty('--my', e.clientY + 'px'); st.setProperty('--px', (e.clientX / innerWidth - .5).toFixed(3)); st.setProperty('--py', (e.clientY / innerHeight - .5).toFixed(3)); });
-  if (RM) return;
-  const el = e.target.closest?.('.player,.vs,.parch');
-  document.querySelectorAll('[data-tilt].on').forEach(o => { if (o !== el) { o.classList.remove('on'); o.style.rotate = ''; } });
-  if (!el) return; const r = el.getBoundingClientRect(), dx = (e.clientX - r.left) / r.width - .5, dy = (e.clientY - r.top) / r.height - .5;
-  el.setAttribute('data-tilt', ''); el.classList.add('on'); el.style.setProperty('--gx', (dx + .5) * 100 + '%'); el.style.setProperty('--gy', (dy + .5) * 100 + '%'); el.style.rotate = `${(-dy).toFixed(3)} ${dx.toFixed(3)} 0 ${(Math.hypot(dx, dy) * 7).toFixed(2)}deg`;
-});
-document.addEventListener('pointerup', () => document.querySelectorAll('[data-tilt].on').forEach(o => { o.classList.remove('on'); o.style.rotate = ''; }));
-addEventListener('deviceorientation', e => { if (e.gamma == null) return; const st = document.documentElement.style; st.setProperty('--px', Math.max(-.5, Math.min(.5, e.gamma / 60)).toFixed(3)); st.setProperty('--py', Math.max(-.5, Math.min(.5, (e.beta - 40) / 80)).toFixed(3)); }, { passive: true });
+function countUp() { if (RM || !document.getElementById('body')?.classList.contains('fx')) return; document.querySelectorAll('.kpi b[data-to]').forEach(b => { const to = +b.dataset.to; if (!to || b.dataset.done) return; b.dataset.done = 1; const t0 = performance.now() + 250; b.textContent = '0';
+  const st = t => { const k = Math.max(0, Math.min(1, (t - t0) / 900)); b.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(st); }; requestAnimationFrame(st); }); }
+function ring(x, y, c = '#ffc533') { if (RM) return; const r = document.createElement('div'); r.className = 'shock'; r.style.cssText = `left:${x}px;top:${y}px;--c:${c}`; document.body.appendChild(r); setTimeout(() => r.remove(), 900); }
+function alertBox() { let a = document.querySelector('.alerts'); if (!a) { a = document.createElement('div'); a.className = 'alerts'; document.body.appendChild(a); } return a; }
+function pushAlert(cls, tag, msg) { const el = document.createElement('div'); el.className = 'alert ' + cls; el.innerHTML = `<small>${tag}</small>${msg}`; alertBox().appendChild(el); ring(innerWidth - 60, 40, cls === 'sab' ? '#ff5d8f' : cls === 'ast' ? '#35e8a0' : '#ffc533'); setTimeout(() => el.remove(), 5100); }
+function newAlerts(old, cur) { if (!old || !cur) return; const seen = new Set(old.log.map(e => e.at + e.type + e.from + (e.to || ''))); const fresh = cur.log.filter(e => !seen.has(e.at + e.type + e.from + (e.to || ''))).reverse().slice(-4);
+  for (const e of fresh) { if (e.type === 'sabotage') pushAlert('sab', 'SABOTAGE', `${esc(e.fromName)} jammed ${esc(e.toName)}`); else if (e.type === 'assist') pushAlert('ast', 'ASSIST', `${esc(e.fromName)} helped ${esc(e.toName)}`); else if (e.type === 'finish') pushAlert('fin', 'VICTORY', `${esc(e.fromName)} finished the hunt`); else pushAlert('', 'FOUND', `${esc(e.fromName)} → ${esc(e.stationName)}`); } }
 
-/* shrink big sound-effect words until they fit their panel */
-function fitSfx(root = document) { root.querySelectorAll('.sfx:not([data-fit])').forEach(el => { const box = el.closest('.stage,.ov'); if (!box) return; el.dataset.fit = 1;
-  if (!RM && !el.children.length) { const t = el.textContent; el.textContent = ''; [...t].forEach((c, i) => { const sp = document.createElement('span'); sp.className = 'ch'; sp.style.setProperty('--i', i); sp.style.setProperty('--r', (i % 2 ? 1 : -1) * (14 + i * 3) + 'deg'); sp.textContent = c === ' ' ? '\u00a0' : c; el.appendChild(sp); }); }
-  let fs = parseFloat(getComputedStyle(el).fontSize); const lim = box.clientWidth * .9; let n = 0; while (el.scrollWidth > lim && fs > 26 && n++ < 40) { fs -= 3; el.style.fontSize = fs + 'px'; } }); }
-/* decorate whatever the app just rendered (idempotent) */
-const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } }), { threshold: .12 }) : null;
-function decorate() {
-  fitSfx();
-  document.querySelectorAll('.player:not(:has(.glare))').forEach(p => { const g = document.createElement('i'); g.className = 'glare'; p.appendChild(g); });
-  document.querySelectorAll('.stat b:not([data-n])').forEach(b => { b.dataset.n = 1; if (RM) return;
-    const m = b.textContent.match(/^(\d+)(\/\d+)?$/); if (!m) return; const to = +m[1], suf = m[2] || ''; if (!to) return; const t0 = performance.now() + 450;
-    b.textContent = '0' + suf; const step = t => { const k = Math.max(0, Math.min(1, (t - t0) / 800)); b.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))) + suf; if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); });
-  document.querySelectorAll('.parch:not([data-w])').forEach(p => { p.dataset.w = 1; if (RM) return;
-    const tn = [...p.childNodes].find(n => n.nodeType === 3 && n.textContent.trim()); if (!tn) return; const f = document.createDocumentFragment(); let i = 0;
-    tn.textContent.split(/(\s+)/).forEach(w => { if (!w.trim()) { f.appendChild(document.createTextNode(w)); return; } const s = document.createElement('span'); s.className = 'w'; s.style.setProperty('--d', i++); s.textContent = w; f.appendChild(s); }); tn.replaceWith(f); });
-  if (io && !RM) document.querySelectorAll('.wrap>*:not([data-rv])').forEach(el => { el.dataset.rv = 1; if (el.getBoundingClientRect().top > innerHeight * .92) { el.classList.add('rv'); io.observe(el); } });
-}
-new MutationObserver(() => requestAnimationFrame(decorate)).observe($app, { childList: true });
-
-
-/* ===== SIGNATURE MOVE: the screen SHATTERS like a broken manga panel ===== */
-function shatter(cx, cy, tone = 'intro') {
-  if (RM) return; const W = innerWidth, H = innerHeight, NS = 'http://www.w3.org/2000/svg';
-  const cols = Math.max(5, Math.round(W / 62)), rows = Math.max(7, Math.round(H / 62)), cw = W / cols, ch = H / rows;
-  const pal = { intro: ['#0a0612', '#160a30', '#1f0f45', '#0e0720'], win: ['#ffc533', '#fff', '#ffd966', '#35e8a0'], warn: ['#4b2d8f', '#7c3aed', '#0a0612', '#bda7f0'] }[tone] || ['#0a0612'];
-  const edge = tone === 'win' ? '#000' : '#ffc533';
-  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'shatter'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', W); svg.setAttribute('height', H);
-  const V = []; for (let r = 0; r <= rows; r++) { V[r] = []; for (let c = 0; c <= cols; c++) V[r][c] = [c * cw + (c > 0 && c < cols ? (Math.random() - .5) * cw * .7 : 0), r * ch + (r > 0 && r < rows ? (Math.random() - .5) * ch * .7 : 0)]; }
-  const tris = [];
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const a = V[r][c], b = V[r][c + 1], d = V[r + 1][c], e = V[r + 1][c + 1];
-    tris.push(Math.random() < .5 ? [a, b, d] : [a, b, e]); tris.push(Math.random() < .5 ? [b, e, d] : [a, e, d]); }
-  const maxD = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy)); const polys = [];
-  for (const t of tris) { const p = document.createElementNS(NS, 'polygon'); p.setAttribute('points', t.map(q => q.join(',')).join(' '));
-    p.setAttribute('fill', pal[Math.floor(Math.random() * pal.length)]); p.setAttribute('stroke', edge); p.setAttribute('stroke-width', '1.4'); p.setAttribute('stroke-linejoin', 'round'); svg.appendChild(p);
-    const mx = (t[0][0] + t[1][0] + t[2][0]) / 3, my = (t[0][1] + t[1][1] + t[2][1]) / 3; polys.push([p, mx, my]); }
-  document.body.appendChild(svg); impact(); quake(); sparks(cx, cy, 120, tone === 'warn' ? 'warn' : 'win', 1.8); shock(cx, cy, tone === 'warn' ? 'warn' : 'up');
-  let n = 0;
-  for (const [p, mx, my] of polys) { const dx = mx - cx, dy = my - cy, dist = Math.hypot(dx, dy) || 1, k = 1 - dist / maxD;
-    const push = 260 + Math.random() * 520 * (.4 + k), ang = Math.atan2(dy, dx) + (Math.random() - .5) * .9, tx = Math.cos(ang) * push, ty = Math.sin(ang) * push + 300 + Math.random() * 400, rot = (Math.random() - .5) * 720, delay = 150 + (dist / maxD) * 380;
-    const an = p.animate([{ transform: 'translate(0,0) rotate(0deg) scale(1)', opacity: 1 }, { transform: `translate(${tx * .35}px,${ty * .1}px) rotate(${rot * .3}deg) scale(1.04)`, opacity: 1, offset: .35 }, { transform: `translate(${tx}px,${ty}px) rotate(${rot}deg) scale(.4)`, opacity: 0 }],
-      { duration: 1000 + Math.random() * 400, delay, easing: 'cubic-bezier(.5,0,.9,.5)', fill: 'both' });
-    p.style.transformBox = 'fill-box'; p.style.transformOrigin = 'center'; an.onfinish = () => { if (++n >= polys.length) svg.remove(); }; }
-  setTimeout(() => svg.remove(), 2400);
+/* ---- command-centre boot sequence ---- */
+function boot(done) {
+  if (RM || sessionStorage.getItem('hkBoot')) return done();
+  sessionStorage.setItem('hkBoot', '1');
+  const el = document.createElement('div'); el.id = 'boot';
+  const lines = [['HASMUKH KARKHANA // COMMAND CENTRE', 'v5'], ['AUTHENTICATING ORGANISER', 'OK'], [`LINKING ${S.stations.length} QR NODES`, 'OK'], [`SYNCING ${S.teams.length} SQUADS`, 'OK'], ['SABOTAGE GRID', 'ARMED'], ['AUDIT TRAIL', 'RECORDING'], ['ALL SYSTEMS GREEN', 'GO']];
+  el.innerHTML = `<div class="grid"></div><div class="rad"></div><div style="position:relative;z-index:2;width:100%;display:grid;justify-items:center"><div class="title">COMMAND<br>ONLINE</div>
+    <div class="term">${lines.map(([a, b], i) => `<div style="animation-delay:${.35 + i * .28}s">▸ ${a} <b>… ${b}</b></div>`).join('')}<div class="pb"><i id="bpb"></i></div></div></div>
+    ${Array.from({ length: 10 }, (_, i) => `<div class="blind" style="--b:${i};top:${i * 10}%;height:10.2%;transform-origin:${i % 2 ? 'top' : 'bottom'}"></div>`).join('')}`;
+  document.body.appendChild(el);
+  const bar = document.getElementById('bpb'); let v = 0; const iv = setInterval(() => { v = Math.min(100, v + 3 + Math.random() * 5); bar.style.width = v + '%'; if (v >= 100) clearInterval(iv); }, 60);
+  let closed = false; const open = () => { if (closed) return; closed = true; clearInterval(iv); el.classList.add('open'); ring(innerWidth / 2, innerHeight / 2, '#35e8a0'); setTimeout(() => ring(innerWidth / 2, innerHeight / 2, '#ffc533'), 150); setTimeout(() => { el.remove(); }, 1300); done(); };
+  el.addEventListener('click', open); setTimeout(open, 2900);
 }
 
-/* ================= V5: EVEN CRAZIER ================= */
-function shock(x, y, tone = 'up') { if (RM) return; const col = { up: '#ffc533', win: '#ffc533', warn: '#7c3aed', ally: '#35e8a0', tap: '#bda7f0' }[tone] || '#ffc533';
-  [0, 110, 230].forEach((d, i) => setTimeout(() => { const r = document.createElement('div'); r.className = 'shock'; r.style.cssText = `left:${x}px;top:${y}px;--c:${i === 1 ? '#fff' : col}`; document.body.appendChild(r); setTimeout(() => r.remove(), 900); }, d)); }
-function impact() { if (RM) return; const f = document.createElement('div'); f.className = 'imp'; document.body.appendChild(f); setTimeout(() => f.remove(), 260); }
-document.addEventListener('pointerdown', e => { if (!e.target.closest('#scanner')) shock(e.clientX, e.clientY, 'tap'); });
-let lastTrail = 0;
-document.addEventListener('pointermove', e => { if (e.pointerType !== 'mouse' || RM) return; const t = performance.now(); if (t - lastTrail < 45) return; lastTrail = t; sparks(e.clientX, e.clientY, 2, 'tap', .35); });
-addEventListener('scroll', () => document.documentElement.style.setProperty('--sy', Math.min(3, scrollY / innerHeight).toFixed(3)), { passive: true });
-/* falling katakana rain behind everything */
-(function () {
-  if (RM) return; const c = document.createElement('canvas'); c.id = 'rain'; document.body.prepend(c); const x = c.getContext('2d');
-  const G = 'ゴドバンタカラ宝探シ財宝鍵謎闇光刃影'; let W, H, cols = [], last = 0;
-  const size = () => { W = c.width = innerWidth; H = c.height = innerHeight; cols = Array.from({ length: Math.ceil(W / 38) }, (_, i) => ({ x: i * 38 + 12, y: -Math.random() * H, v: 1.2 + Math.random() * 2.6, s: Array.from({ length: 9 }, () => G[Math.floor(Math.random() * G.length)]) })); };
-  size(); addEventListener('resize', size);
-  const draw = t => { requestAnimationFrame(draw); if (document.hidden || t - last < 40) return; last = t; x.clearRect(0, 0, W, H); x.font = "900 20px 'Noto Serif JP',serif"; x.textAlign = 'center';
-    for (const k of cols) { k.y += k.v * 3; if (k.y - 9 * 24 > H) { k.y = -20; k.v = 1.2 + Math.random() * 2.6; }
-      if (Math.random() < .08) k.s[Math.floor(Math.random() * 9)] = G[Math.floor(Math.random() * G.length)];
-      for (let i = 0; i < 9; i++) { x.globalAlpha = i ? (1 - i / 9) * .2 : .5; x.fillStyle = i ? '#7c3aed' : '#ffc533'; x.fillText(k.s[i], k.x, k.y - i * 24); } }
-    x.globalAlpha = 1; };
-  requestAnimationFrame(draw);
-})();
+/* ---- Audit log ---- */
+const AUD = { login: ['SIGN-IN', '#35e8a0'], login_failed: ['FAILED LOGIN', '#ff5d8f'], station_add: ['QR ADDED', '#ffc533'], station_edit: ['QR EDITED', '#ffd966'], station_delete: ['QR DELETED', '#ff5d8f'],
+  team_add: ['TEAM ADDED', '#35e8a0'], team_edit: ['TEAM EDITED', '#bda7f0'], team_password: ['PASSWORD', '#7c3aed'], team_reset: ['TEAM RESET', '#ff9a4d'], team_delete: ['TEAM DELETED', '#ff5d8f'],
+  autoroute: ['AUTO-ROUTES', '#ffc533'], settings: ['SETTINGS', '#bda7f0'], reset_all: ['FULL RESET', '#ff5d8f'], unlock: ['SABOTAGE LIFTED', '#35e8a0'] };
+const AGRP = { all: 'All', login: 'Sign-ins', station: 'QR stations', team: 'Teams', route: 'Routes', settings: 'Settings & resets' };
+const agroup = a => /^login/.test(a) ? 'login' : /^station/.test(a) ? 'station' : /^team/.test(a) ? 'team' : a === 'autoroute' ? 'route' : 'settings';
+let AUDIT = null, afil = 'all', aq = '';
+const device = ua => { ua = ua || ''; const os = /iPhone|iPad/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac OS/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : 'Device'; const br = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : /Firefox\//.test(ua) ? 'Firefox' : ''; return os + (br ? ' · ' + br : ''); };
+const ago = ms => { const s = Math.max(0, Math.floor((Date.now() - ms) / 1000)); return s < 60 ? s + 's ago' : s < 3600 ? Math.floor(s / 60) + 'm ago' : s < 86400 ? Math.floor(s / 3600) + 'h ago' : Math.floor(s / 86400) + 'd ago'; };
+async function audit(first = true) {
+  const b = document.getElementById('body');
+  if (first) b.innerHTML = `<div class="card" style="max-width:820px"><h3>Audit log</h3><p class="muted small">Every admin action, with time, device and IP. Reset buttons never delete this list.</p><div class="small muted">Loading…</div></div>`;
+  let r; try { r = await api('/api/admin/audit'); } catch (e) { if (e.auth) return loginView(); return; }
+  const prev = AUDIT && new Set(AUDIT.map(x => x.at + x.action + x.detail)); AUDIT = r.items;
+  const rows = AUDIT.filter(x => (afil === 'all' || agroup(x.action) === afil) && (!aq || (x.detail + ' ' + x.action).toLowerCase().includes(aq)));
+  let day = '';
+  const html = rows.map(x => { const d = new Date(x.at), dk = d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' }); const [lb, col] = AUD[x.action] || [x.action.toUpperCase(), '#bda7f0'];
+    const head = dk !== day ? `<div class="dayh">${esc(dk)}</div>` : ''; day = dk;
+    return head + `<div class="alog ${prev && !prev.has(x.at + x.action + x.detail) ? 'fresh' : ''}" style="--c:${col}"><div class="h"><span class="tg">${esc(lb)}</span><div class="tm">${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}<small>${ago(x.at)}</small></div></div><div class="dt">${esc(x.detail)}</div><div class="meta">${esc(device(x.ua))}${x.ip ? ' · ' + esc(x.ip) : ''}</div></div>`; }).join('');
+  b.innerHTML = `<div class="card" style="max-width:820px"><h3>Audit log <span class="badge">${rows.length}</span></h3>
+    <p class="muted small" style="margin-top:0">Everything the organiser side did: who signed in, what was added, edited, deleted or reset, and when.</p>
+    <div class="af">${Object.entries(AGRP).map(([k, l]) => `<span class="pick ${afil === k ? 'on' : ''}" onclick="afil='${k}';audit(false)">${l}</span>`).join('')}</div>
+    <div class="row" style="margin-bottom:8px"><input id="aq" class="ghost-ph" placeholder="Search the log… (team, QR, password, reset)" value="${esc(aq)}" style="flex:3"><button class="btn sm ghost" onclick="auditCsv()" style="flex:1">⬇ CSV</button></div>
+    ${html || '<p class="muted">Nothing here yet.</p>'}</div>`;
+  const inp = document.getElementById('aq'); inp.oninput = () => { aq = inp.value.toLowerCase(); clearTimeout(window._aqt); window._aqt = setTimeout(() => { audit(false).then(() => { const i = document.getElementById('aq'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }); }, 250); };
+  clearInterval(timer); timer = setInterval(() => { if (tab === 'audit' && document.activeElement?.id !== 'aq') audit(false); }, 8000);
+}
+function auditCsv() { const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"'; const csv = 'time,action,detail,device,ip\n' + (AUDIT || []).map(x => [new Date(x.at).toISOString(), x.action, x.detail, device(x.ua), x.ip].map(q).join(',')).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'hasmukh-karkhana-audit.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
 
-route();
+load();
 </script>
 </body>
 </html>
