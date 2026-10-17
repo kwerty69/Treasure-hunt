@@ -570,3 +570,8 @@ html.inv{filter:invert(1)}
 
 .shatter{position:fixed;inset:0;width:100vw;height:100vh;z-index:160;pointer-events:none}
 @media (prefers-reduced-motion:reduce){.shatter{display:none}}
+
+.glare{position:absolute;inset:0;pointer-events:none;z-index:3;opacity:0;transition:opacity .25s;background:radial-gradient(280px circle at var(--gx,50%) var(--gy,0%),rgba(255,255,255,.28),rgba(255,197,51,.12) 40%,transparent 65%),conic-gradient(from 200deg at var(--gx,50%) var(--gy,50%),rgba(255,0,150,.0),rgba(0,255,200,.16),rgba(255,230,0,.14),rgba(124,58,237,.18),rgba(255,0,150,0));mix-blend-mode:color-dodge}
+.player.on .glare{opacity:1}
+.player .sigil{transition:translate .2s,scale .2s}.player.on .sigil{translate:calc((var(--gx,50%) - 50%)*-.12) 0;scale:1.08}
+@media (prefers-reduced-motion:reduce){.glare{display:none}}
